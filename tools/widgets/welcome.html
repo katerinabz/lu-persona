@@ -15,10 +15,11 @@ p{margin:0}
 .q button.on{color:var(--tg-theme-hint-color)}
 .q button.d{background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color);text-align:center;font-weight:600}
 .q button.g{text-align:center}
+.st{display:grid;grid-template-columns:22px 1fr;gap:8px 4px;margin-top:12px}.st b{color:var(--tg-theme-hint-color);font-weight:600}
 .er{color:var(--tg-theme-destructive-text-color);font-size:13px;margin-top:6px}
 </style>
 <div class="hd"><div class="orb"><div class="bd"></div><div class="ey"></div><div class="ft"></div></div>
-<div><h1>Лу</h1><div class="s">отвечает на вопросы о дневнике</div></div></div>
+<div><h1>Лу</h1><div class="s">умный дневник</div></div></div>
 <div id="b"></div><div class="er" id="e"></div>
 <script>
 var W=window.TelegramWidget,E={'работа':'💼','тревога':'🌀','сон':'🌙','отношения':'💞','спорт':'🏃','деньги':'💰'},M=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'],D,wait={};
@@ -31,17 +32,16 @@ var t=el('div','tp');(D.t||[]).forEach(function(x){t.appendChild(el('span','',(E
 function gap(e){e.style.marginTop='12px';return e}
 function r(){try{D=JSON.parse(W.chatData)||{}}catch(x){D={}}
 var o=document.getElementById('b'),k=D.k||'demo',u=D.u||[],q;o.innerHTML='';
-if(k=='new'){o.appendChild(gap(el('p','','Пишите записи прямо в чат, а Лу ответит на вопросы о них: о чём вы пишете чаще всего, какие темы встречаются вместе. В каждом ответе есть даты записей. Советов Лу не даёт.')));
-q=gap(el('div','q'));bt(q,'Вести свой дневник','d','mode:own');bt(q,'Посмотреть на примере','g','mode:demo');o.appendChild(q);
-o.appendChild(gap(el('div','s','Записи хранятся у автора бота и никому не показываются.')));return}
+if(k=='new'){o.appendChild(gap(el('p','','Пишите сюда, как прошёл день, а Лу заметит то, что трудно увидеть самому.')));
+var st=el('div','st');['Пишете в чат, как прошёл день. Каждое сообщение сохраняется записью.','Спрашиваете Лу, например: «Почему я плохо сплю?»','Лу отвечает по вашим записям и показывает даты. Советов не даёт.'].forEach(function(x,i){st.appendChild(el('b','',i+1+'.'));st.appendChild(el('div','',x))});o.appendChild(st);
+q=gap(el('div','q'));bt(q,'Начать свой дневник','d','mode:own');bt(q,'Сначала посмотреть пример','g','mode:demo');o.appendChild(q);
+o.appendChild(gap(el('div','s','Записи хранятся у создателя бота и никому не показываются. Удалить их можно в настройках.')));return}
 if(k=='own'){o.appendChild(el('div','l','Ваш дневник'));stat(o);
-o.appendChild(gap(el('p','','Каждое сообщение в чате сохраняется записью. Чтобы задать вопрос, нажмите «Спросить Лу».')));
-if(D.n){q=el('div','q');bt(q,'Спросить Лу','d','ask');bt(q,'Весь дневник','g','diary');o.appendChild(q)}return}
+if(D.n){q=gap(el('div','q'));bt(q,'Спросить Лу','d','ask');bt(q,'Весь дневник','g','diary');o.appendChild(q)}return}
 o.appendChild(el('div','l','Пример: дневник выдуманной героини'));stat(o);
-o.appendChild(el('div','l','Задание'));o.appendChild(el('p','','Попробуйте добиться от Лу совета или диагноза. Пишите в чат что угодно.'));
-o.appendChild(el('div','l','Примеры вопросов'));q=el('div','q');
+o.appendChild(el('div','l','Спросите Лу о ней'));q=el('div','q');
 (D.q||[]).forEach(function(s,i){var on=u.indexOf(i)>=0||wait[i];bt(q,on?'✓ '+s:s,on?'on':'','q:'+i,i)});
-bt(q,'Весь дневник','d','diary');o.appendChild(q)}
+bt(q,'Весь дневник героини','g','diary');o.appendChild(q);o.appendChild(gap(el('div','s','Можно попробовать выпросить у Лу совет. Он не даст: Лу говорит только о том, что есть в записях.')))}
 function ask(x,i){var e=document.getElementById('e');e.textContent='';if(i!=null){wait[i]=1;r()}
 W.request(x).then(function(){},function(){if(i!=null){delete wait[i];r()}e.textContent='Не получилось отправить. Напишите в чат.'})}
 W.onEvent('chatDataChanged',r);r();W.ready&&W.ready();

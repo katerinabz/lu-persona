@@ -43,6 +43,7 @@ import datetime
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -68,21 +69,29 @@ STATE = os.path.join(ROOT, 'data', 'tg.json')
 # --- тексты ------------------------------------------------------------------------------
 
 DESCRIPTION = (
-    'Лу отвечает на вопросы о вашем дневнике: о чём вы пишете чаще всего, какие темы встречаются '
-    'вместе, когда что началось. В каждом ответе есть даты записей. Советов Лу не даёт.\n\n'
-    'Дневник можно вести прямо в этом чате или сначала посмотреть на пример.')
-SHORT_DESCRIPTION = 'Отвечает на вопросы о вашем дневнике, с датами записей. Без советов.'
+    'Лу — умный дневник.\n\n'
+    'Пишите сюда, как прошёл день и что беспокоит, как в заметки. Лу читает записи и замечает то, '
+    'что трудно увидеть самому: о чём вы пишете чаще всего, что повторяется вместе, когда что началось.\n\n'
+    'В каждом ответе Лу показывает даты записей. Советов и диагнозов не даёт.')
+SHORT_DESCRIPTION = 'Умный дневник: вы пишете, Лу замечает, что повторяется. С датами, без советов.'
 
 INTRO_NEW = (
-    'Пишите записи прямо в чат, а Лу ответит на вопросы о них: о чём вы пишете чаще всего, какие '
-    'темы встречаются вместе. В каждом ответе есть даты записей. Советов Лу не даёт.\n\n'
-    'Записи хранятся у автора бота и никому не показываются.')
+    'Лу — умный дневник.\n\n'
+    '1. Пишете сюда, как прошёл день. Каждое сообщение сохраняется записью.\n'
+    '2. Спрашиваете Лу, например: «Почему я плохо сплю?»\n'
+    '3. Лу отвечает по вашим записям и показывает даты. Советов не даёт.\n\n'
+    'Записи хранятся у создателя бота и никому не показываются. Удалить их можно в настройках.')
 INTRO_DEMO = (
-    'Пример: 34 записи выдуманной героини за июнь и июль 2026 года.\n\n'
-    'Задание: попробуйте добиться от Лу совета или диагноза. Пишите в чат что угодно.')
-OWN_HELLO = ('Свой дневник открыт. Каждое сообщение в чате сохраняется записью.\n\n'
-             'Чтобы задать вопрос, нажмите «Спросить Лу» внизу.')
-DEMO_HELLO = 'Открыт пример. Задавайте вопросы о нём прямо в чат.'
+    'Это пример: 34 записи выдуманной героини за июнь и июль 2026 года.\n\n'
+    'Спросите Лу о ней: напишите вопрос в чат.')
+OWN_HELLO = ('Дневник начат. Напишите первую запись: как прошёл день, что порадовало, что беспокоит. '
+             'Просто сообщением сюда.')
+OWN_BACK = 'Новая запись — просто сообщение сюда.'
+DEMO_HELLO = 'Это пример: дневник выдуманной героини. Спросите Лу о ней: нажмите вопрос в карточке или напишите свой.'
+FIRST_ENTRY = ('Это первая запись. Пишите так каждый день или когда хочется. '
+               'Через несколько записей спросите Лу, что повторяется: кнопка «Спросить Лу» внизу.')
+THIRD_ENTRY = 'Записей уже три. Можно спросить Лу, например: «О чём я пишу чаще всего?» Кнопка «Спросить Лу» внизу.'
+QUESTION_OR_ENTRY = 'Это вопрос к Лу или запись в дневник?'
 CHOOSE = 'Сначала выберите: свой дневник или пример.'
 
 WELCOME_CAPTION = {'new': '', 'demo': '', 'own': ''}
@@ -93,6 +102,7 @@ ANSWER_SHORT_CAPTION = 'Записи из ответа.'
 SAVED = 'Записано · %s'
 SAVED_AS_QUESTION = 'Отправлено Лу как вопрос.'
 ASK_PROMPT = 'Напишите вопрос. Например: о чём я пишу чаще всего?'
+ASK_PROMPT_SHORT = 'Напишите вопрос.'
 ASK_CANCELLED = 'Отменено.'
 NEED_ENTRIES = 'Сначала напишите хотя бы одну запись: Лу отвечает только по ним.'
 DEMO_ASK = 'Пишите вопрос прямо в чат.'
@@ -124,7 +134,7 @@ SETTINGS = 'Настройки'
 SETTINGS_OWN = 'Свой дневник · %d %s'
 SETTINGS_DEMO = 'Пример дневника'
 SETTINGS_KEY = 'Свой ключ: вопросы без лимита'
-SETTINGS_LIMIT = 'Вопросов на сегодня: %d из %d'
+SETTINGS_LIMIT = 'Осталось вопросов на сегодня: %d из %d. Записи без ограничений.'
 CLEAR_ASK = 'Удалить все записи (%d)? Лу забудет и разговоры о них. Восстановить будет нельзя.'
 CLEARED = 'Записи удалены: %d.'
 MEM_ASK = 'Лу забудет все разговоры с вами. Записи останутся.'
@@ -135,17 +145,19 @@ ENTRY_GONE = 'Этой записи уже нет.'
 ENTRY_DELETED = 'Запись удалена.'
 DELETE_ASK = 'Удалить запись от %s?\n\n%s'
 TOPICS_HEAD = 'Темы записи от %s. Нажмите, чтобы добавить или убрать.'
-EDIT_PROMPT = 'Пришлите новый текст записи от %s.\n\nМожно и просто отредактировать само сообщение в чате.'
+EDIT_PROMPT = ('Пришлите новый текст записи от %s. Сейчас там:\n\n%s\n\n'
+               'Поправить пару слов быстрее в самом сообщении: долгое нажатие на него → «Изменить».')
 EDIT_DONE = 'Текст изменён.'
 EDIT_CANCELLED = 'Отменено.'
 SAVED_EDITED = 'Изменено · %s'
 EXPORT_CAPTION = 'Все ваши записи.'
 
 BTN_ASK, BTN_MY_DIARY, BTN_EXAMPLE = 'Спросить Лу', 'Мои записи', 'Пример дневника'
-BTN_DEMO_DIARY, BTN_OWN, BTN_SETTINGS = 'Дневник примера', 'Вести свой дневник', 'Настройки'
-KEYBOARD = {'own': [[BTN_ASK, BTN_MY_DIARY], [BTN_EXAMPLE, BTN_SETTINGS]],
+BTN_CALENDAR = 'Календарь'
+BTN_DEMO_DIARY, BTN_OWN, BTN_SETTINGS = 'Дневник героини', 'Начать свой дневник', 'Настройки'
+KEYBOARD = {'own': [[BTN_ASK, BTN_MY_DIARY], [BTN_CALENDAR, BTN_SETTINGS]],
             'demo': [[BTN_DEMO_DIARY, BTN_OWN], [BTN_SETTINGS]]}
-BUTTONS = {BTN_ASK, BTN_MY_DIARY, BTN_EXAMPLE, BTN_DEMO_DIARY, BTN_OWN, BTN_SETTINGS}
+BUTTONS = {BTN_ASK, BTN_MY_DIARY, BTN_EXAMPLE, BTN_CALENDAR, BTN_DEMO_DIARY, BTN_OWN, BTN_SETTINGS}
 EMOJI = {'работа': '💼', 'тревога': '🌀', 'сон': '🌙', 'отношения': '💞', 'спорт': '🏃', 'деньги': '💰'}
 MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
 PAGE = 5
@@ -157,15 +169,12 @@ QUESTIONS = [
      [('yes', 'Да'), ('no', 'Нет')]),
 ]
 
+# В меню только частое. /mine, /example, /key, /key_off, /forget работают, но живут в настройках и подсказках.
 COMMANDS = [{'command': 'start', 'description': 'Начало'},
-            {'command': 'mine', 'description': 'Мой дневник'},
-            {'command': 'example', 'description': 'Пример дневника'},
             {'command': 'ask', 'description': 'Спросить Лу'},
             {'command': 'entries', 'description': 'Мои записи'},
             {'command': 'diary', 'description': 'Календарь'},
-            {'command': 'settings', 'description': 'Настройки'},
-            {'command': 'key', 'description': 'Свой API-ключ'},
-            {'command': 'forget', 'description': 'Удалить мои данные'}]
+            {'command': 'settings', 'description': 'Настройки'}]
 
 API_ERRORS = (urllib.error.URLError, RuntimeError, OSError, ValueError)
 
@@ -191,6 +200,17 @@ def short(text, n=140):
 
 def topics_label(topics):
     return ', '.join(topics) if topics else 'без темы'
+
+
+MONTHS_FULL = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября',
+               'октября', 'ноября', 'декабря']
+
+
+def human_dates(text):
+    """2026-11-10 в ответе Лу превращается в «10 ноября»: в остальном интерфейсе даты так и пишутся."""
+    return re.sub(r'\b(20\d\d)-(\d\d)-(\d\d)\b',
+                  lambda m: '%d %s' % (int(m.group(3)), MONTHS_FULL[int(m.group(2)) - 1])
+                  if 1 <= int(m.group(2)) <= 12 else m.group(0), text)
 
 
 def plural(n, a, b, c):
@@ -362,20 +382,22 @@ class Bridge(object):
             elif kind == 'demo':
                 self.send(uid, INTRO_DEMO)
             else:
-                self.send(uid, OWN_HELLO)
+                self.send(uid, OWN_BACK)
 
     def choice_keyboard(self):
         return [[{'text': BTN_OWN, 'callback_data': 'mode:own'},
-                 {'text': 'Посмотреть на примере', 'callback_data': 'mode:demo'}]]
+                 {'text': 'Сначала посмотреть пример', 'callback_data': 'mode:demo'}]]
 
     def switch(self, uid, mode):
         self.store.set_mode(uid, mode)
         u = self.user(uid)
         u['awaiting'] = ''
         if mode == 'own':
-            self.send(uid, OWN_HELLO, reply_keyboard=KEYBOARD['own'])
             if self.store.entries(uid):
+                self.send(uid, OWN_BACK, reply_keyboard=KEYBOARD['own'])
                 self.send_welcome(uid, 'own')
+            else:
+                self.send(uid, OWN_HELLO, reply_keyboard=KEYBOARD['own'])
         else:
             self.send(uid, DEMO_HELLO, reply_keyboard=KEYBOARD['demo'])
             self.send_welcome(uid, 'demo')
@@ -409,17 +431,15 @@ class Bridge(object):
         lines.append(SETTINGS_KEY if p.get('key') else SETTINGS_LIMIT % (max(0, DAILY_LIMIT - u['count']), DAILY_LIMIT))
         kb = []
         if p['mode'] == 'own':
-            kb.append([{'text': 'Мои записи', 'callback_data': 'ls:0'},
-                       {'text': 'Скачать записи', 'callback_data': 'set:export'}])
-            kb.append([{'text': 'Перейти к примеру', 'callback_data': 'mode:demo'}])
+            kb.append([{'text': 'Скачать записи', 'callback_data': 'set:export'}])
+            kb.append([{'text': 'Пример дневника', 'callback_data': 'mode:demo'}])
         else:
             kb.append([{'text': 'Вести свой дневник', 'callback_data': 'mode:own'}])
         kb.append([{'text': 'Отвязать ключ', 'callback_data': 'set:keyoff'} if p.get('key')
-                   else {'text': 'Привязать свой ключ', 'callback_data': 'set:key'}])
-        kb.append([{'text': 'Забыть разговоры с Лу', 'callback_data': 'set:mem'}])
+                   else {'text': 'Свой API-ключ: без лимита вопросов', 'callback_data': 'set:key'}])
         if self.store.count(uid):
             kb.append([{'text': 'Удалить все записи', 'callback_data': 'set:clear'}])
-        kb.append([{'text': 'Удалить всё', 'callback_data': 'set:all'}])
+        kb.append([{'text': 'Удалить все мои данные из бота', 'callback_data': 'set:all'}])
         return '\n'.join(lines), kb
 
     def confirm(self, text, yes, yes_data, no_data='set'):
@@ -431,7 +451,7 @@ class Bridge(object):
     def list_screen(self, uid, offset=0, note=None):
         total = self.store.count(uid)
         if not total:
-            return (note + '\n\n' if note else '') + NO_ENTRIES, [[{'text': '← Настройки', 'callback_data': 'set'}]]
+            return (note + '\n\n' if note else '') + NO_ENTRIES, []
         offset = max(0, min(int(offset), (total - 1) // PAGE * PAGE))
         rows = self.store.listing(uid, offset, PAGE)
         parts = [LIST_HEAD % (offset + 1, offset + len(rows), total)]
@@ -447,7 +467,7 @@ class Bridge(object):
             nav.append({'text': 'Старее →', 'callback_data': 'ls:%d' % (offset + PAGE)})
         if nav:
             kb.append(nav)
-        kb.append([{'text': 'Календарь', 'callback_data': 'cal'}, {'text': '← Настройки', 'callback_data': 'set'}])
+        kb.append([{'text': 'Календарь', 'callback_data': 'cal'}])
         return '\n\n'.join(parts), kb
 
     def entry_keyboard(self, eid):
@@ -499,7 +519,7 @@ class Bridge(object):
         if not self.store.entries(uid):
             return self.send(uid, NEED_ENTRIES)
         self.user(uid)['awaiting'] = 'ask'
-        self.send(uid, ASK_PROMPT, [[{'text': 'Отмена', 'callback_data': 'ask:cancel'}]])
+        self.send(uid, ASK_PROMPT_SHORT if self.user(uid)['replies'] else ASK_PROMPT, [[{'text': 'Отмена', 'callback_data': 'ask:cancel'}]])
 
     # --- вопросы Лу --------------------------------------------------------------------
 
@@ -580,9 +600,12 @@ class Bridge(object):
                 self.log('tg_users.jsonl', user='tg:%s' % uid, source=rest or 'без метки')
             u['awaiting'] = ''
             mode = self.mode(uid)
-            if mode:
+            if mode == 'own' and self.store.entries(uid):
+                self.send(uid, OWN_BACK, reply_keyboard=KEYBOARD['own'])
+                self.send_welcome(uid, 'own')
+            elif mode:
                 self.send(uid, OWN_HELLO if mode == 'own' else DEMO_HELLO, reply_keyboard=KEYBOARD[mode])
-                if mode == 'demo' or self.store.entries(uid):
+                if mode == 'demo':
                     self.send_welcome(uid, mode)
             else:
                 self.send_welcome(uid, 'new')
@@ -591,7 +614,7 @@ class Bridge(object):
             return self.switch(uid, 'own')
         if cmd == '/example' or text == BTN_EXAMPLE:
             return self.switch(uid, 'demo')
-        if cmd == '/diary' or text == BTN_DEMO_DIARY:
+        if cmd == '/diary' or text in (BTN_DEMO_DIARY, BTN_CALENDAR):
             return self.send_diary(uid)
         if cmd == '/entries' or text == BTN_MY_DIARY:
             return self.show(uid, self.list_screen(uid))
@@ -630,20 +653,34 @@ class Bridge(object):
             return self.send(uid, CHOOSE, self.choice_keyboard())
         if mode == 'demo':
             return self.question(uid, 'demo', text)
-        if u['awaiting'] == 'ask':
+        if u['awaiting'] == 'ask' or re.match(r'лу\s*[,:!]', text, re.I):
             u['awaiting'] = ''
             return self.question(uid, 'own', text)
         entry_id, topics = self.store.add_entry(uid, text[:4000])
-        r = self.send(uid, SAVED % self.what(topics), self.saved_keyboard(entry_id))
+        if text.rstrip().endswith('?'):
+            r = self.send(uid, QUESTION_OR_ENTRY, self.question_keyboard(entry_id))
+        else:
+            r = self.send(uid, self.saved_text(uid, topics), self.saved_keyboard(entry_id))
         self.store.link_message(uid, entry_id, m.get('message_id'), (r or {}).get('message_id'))
+
+    def saved_text(self, uid, topics):
+        text = SAVED % self.what(topics)
+        n = self.store.count(uid)
+        if n == 1:
+            text += '\n\n' + FIRST_ENTRY
+        elif n == 3:
+            text += '\n\n' + THIRD_ENTRY
+        return text
+
+    def question_keyboard(self, eid):
+        return [[{'text': 'Спросить Лу', 'callback_data': 'ask:%d' % eid},
+                 {'text': 'Это запись', 'callback_data': 'keep:%d' % eid}]]
 
     def what(self, topics):
         return 'темы: ' + ', '.join(topics) if topics else 'без темы'
 
     def saved_keyboard(self, eid):
-        return [[{'text': 'Это был вопрос к Лу', 'callback_data': 'ask:%d' % eid}],
-                [{'text': 'Темы', 'callback_data': 'tp:%d' % eid},
-                 {'text': 'Изменить', 'callback_data': 'ed:%d' % eid},
+        return [[{'text': 'Изменить', 'callback_data': 'ed:%d' % eid},
                  {'text': 'Удалить', 'callback_data': 'dl:%d' % eid}]]
 
     def on_edited_message(self, m):
@@ -748,6 +785,14 @@ class Bridge(object):
             else:
                 self.store.add_entry(uid, text)  # лимит: запись возвращается на место
             return
+        elif data.startswith('keep:') and data[5:].isdigit():
+            e = self.store.entry(uid, int(data[5:]))
+            self.safe('answerCallbackQuery', callback_query_id=c['id'])
+            if e and msg.get('message_id'):
+                self.safe('editMessageText', chat_id=uid, message_id=msg['message_id'],
+                          text=self.saved_text(uid, e['topics']),
+                          reply_markup={'inline_keyboard': self.saved_keyboard(e['id'])})
+            return
         elif data == 'forget:yes':
             n = self.forget(uid)
             note = FORGET_DONE
@@ -813,7 +858,7 @@ class Bridge(object):
             if e is None:
                 return self.done(ENTRY_GONE, 'ls:0', '← К списку')
             self.user(uid)['awaiting'] = 'edit:%d' % e['id']
-            self.send(uid, EDIT_PROMPT % day_label(e), [[{'text': 'Отмена', 'callback_data': 'ed:cancel'}]])
+            self.send(uid, EDIT_PROMPT % (day_label(e), e['text']), [[{'text': 'Отмена', 'callback_data': 'ed:cancel'}]])
             return False
         if head == 'tp':
             return self.topics_screen(uid, int(arg))
@@ -872,6 +917,7 @@ class Bridge(object):
         rows = self.rows(uid, mode)
         try:
             data = tg_widgets.answer_data(rows, text, mode) if rows else None
+            text = human_dates(text)
         except tg_widgets.TooLarge as e:
             self.log('tg_errors.jsonl', method='answer_data', error=str(e))
             data = None

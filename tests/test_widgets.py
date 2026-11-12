@@ -230,8 +230,28 @@ class OwnDiary(Base):
         b.on_message(self.msg('Не выспалась, на работе дедлайн'))
         rows = b.store.entries(7)
         self.assertEqual(rows[0]['topics'], ['работа', 'сон'])
-        self.assertEqual(b.texts(), [tg_bridge.SAVED % 'темы: работа, сон'])
+        self.assertEqual(b.texts(), [tg_bridge.SAVED % 'темы: работа, сон' + '\n\n' + tg_bridge.FIRST_ENTRY])
         self.assertEqual(self.inbox('own'), [])
+        b.on_message(self.msg('Сходила в зал', mid=101))
+        self.assertEqual(b.texts()[-1], tg_bridge.SAVED % 'темы: спорт')
+
+    def test_question_mark_asks_what_it_is(self):
+        b = self.bridge('own')
+        b.on_message(self.msg('Почему я плохо сплю?'))
+        self.assertEqual(b.texts(), [tg_bridge.QUESTION_OR_ENTRY])
+        kb = b.calls[-1][1]['reply_markup']['inline_keyboard'][0]
+        eid = b.store.listing(7)[0]['id']
+        self.assertEqual([k['callback_data'] for k in kb], ['ask:%d' % eid, 'keep:%d' % eid])
+        b.on_callback({'id': 'c', 'from': {'id': 7}, 'data': 'keep:%d' % eid, 'message': {'message_id': 2}})
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.SAVED % 'темы: сон'))
+        self.assertEqual(len(b.store.entries(7)), 1)
+
+    def test_return_visit_skips_hello(self):
+        b = self.bridge('own')
+        b.store.add_entry(7, 'Тяжёлый день на работе')
+        b.on_message(self.msg('/start'))
+        self.assertEqual(b.texts(), [tg_bridge.OWN_BACK])
+        self.assertIn('sendWidget', b.methods())
 
     def test_tagger_edge_words(self):
         self.assertEqual(tg_store.tag('Поссорилась с мамой, потом долго не могла уснуть'), ['сон', 'отношения'])
@@ -471,7 +491,8 @@ class Editing(Base):
         b.on_message(self.msg('Настройки'))
         self.assertIn(tg_bridge.SETTINGS_OWN % (3, 'записи'), b.texts()[-1])
         self.assertIn('Удалить все записи', b.buttons())
-        self.assertIn('Привязать свой ключ', b.buttons())
+        self.assertIn('Свой API-ключ: без лимита вопросов', b.buttons())
+        self.assertNotIn('Забыть разговоры с Лу', b.buttons())
 
     def test_list_pages_and_card(self):
         b = self.bridge('own')

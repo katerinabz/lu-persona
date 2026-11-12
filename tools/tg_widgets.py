@@ -156,6 +156,10 @@ def diary_data(rows, mode=None):
 def _stem(t):
     if t == 'сон':
         return r'\b(сон|сна|сну|сном|сне)\b'
+    if t == 'тревога':
+        return r'\bтрево[гж]'
+    if t == 'деньги':
+        return r'\b(деньг|денег|денеж|финанс)'
     base = t[:-1] if t[-1] in 'аяеиоуыьй' and len(t) > 4 else t
     return r'\b' + re.escape(base)
 
@@ -187,8 +191,10 @@ def answer_data(rows, text, mode=None):
     if not topics and not cited:
         return None
     lines = []
+    lo, hi = (cited[0], cited[-1]) if len(cited) >= 2 else (0, n)  # Лу назвал период: точки только в нём
     for t in topics:
         days = sorted({(_d(r['date']) - a).days for r in rows if t in r.get('topics', [])})
+        days = [d for d in days if lo <= d <= hi]
         lines.append([t, days])
     if not lines:
         lines.append(['все записи', sorted({(_d(r['date']) - a).days for r in rows})])
