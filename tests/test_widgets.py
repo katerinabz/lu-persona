@@ -288,7 +288,7 @@ class OwnDiary(Base):
         b.store.add_entry(7, 'запись')
         b.on_message(self.msg('/ask вопрос'))
         b.on_callback({'id': 'c', 'from': {'id': 7}, 'data': 'forget:yes', 'message': {'message_id': 5}})
-        self.assertIn(tg_bridge.FORGET_DONE % 1, b.texts())
+        self.assertIn(tg_bridge.FORGET_DONE, b.texts())
         self.assertFalse(os.path.exists(hub.home_of(hub.name_of(7, 'own'))))
         self.assertEqual(b.store.person(7)['mode'], '')
 
@@ -375,7 +375,7 @@ class Keys(Base):
             tg_bridge.tg_keys.check = old
         self.assertIn(('deleteMessage', {'chat_id': 7, 'message_id': 55}), b.calls)
         self.assertEqual(b.store.person(7)['key'], 'nd-' + 'a' * 40)
-        self.assertEqual(b.texts()[-1], tg_bridge.KEY_OK % ('NeuralDeep', 'qwen'))
+        self.assertEqual(b.texts()[-1], tg_bridge.KEY_OK % 'NeuralDeep')
         self.assertEqual(self.inbox('demo'), [])
         for name in os.listdir(self.dir):  # ключ не попадает в журналы
             if name.endswith('.jsonl'):
@@ -470,7 +470,7 @@ class Editing(Base):
         self.three(b)
         b.on_message(self.msg('Настройки'))
         self.assertIn(tg_bridge.SETTINGS_OWN % (3, 'записи'), b.texts()[-1])
-        self.assertIn('Очистить мои записи', b.buttons())
+        self.assertIn('Удалить все записи', b.buttons())
         self.assertIn('Привязать свой ключ', b.buttons())
 
     def test_list_pages_and_card(self):

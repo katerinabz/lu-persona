@@ -1,8 +1,8 @@
 <style>
 body{margin:0;padding:12px 14px max(12px,env(safe-area-inset-bottom));font:15px/1.4 system-ui,sans-serif}
-.l{font:600 11px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--tg-theme-hint-color);margin:0 0 8px}
-.cal{display:grid;grid-template-columns:30px repeat(7,1fr);gap:4px;font:11px ui-monospace,monospace;color:var(--tg-theme-hint-color);text-align:center;align-items:center}
-.c{height:26px;border-radius:7px;border:0;padding:0;font:11px ui-monospace,monospace;color:#1A1A2E;background:none}
+.l{font:600 13px system-ui,sans-serif;color:var(--tg-theme-hint-color);margin:0 0 8px}
+.cal{display:grid;grid-template-columns:30px repeat(7,1fr);gap:4px;font:11px system-ui,sans-serif;color:var(--tg-theme-hint-color);text-align:center;align-items:center}
+.c{height:26px;border-radius:7px;border:0;padding:0;font:11px system-ui,sans-serif;color:#1A1A2E;background:none}
 .c.x{color:var(--tg-theme-hint-color);border:1px solid var(--tg-theme-section-separator-color)}
 .c.o{box-shadow:0 0 0 2px var(--tg-theme-text-color)}
 .c.f{background:none!important;color:var(--tg-theme-hint-color);border:1px dashed var(--tg-theme-section-separator-color)}
@@ -11,16 +11,16 @@ body{margin:0;padding:12px 14px max(12px,env(safe-area-inset-bottom));font:15px/
 .ch button{min-height:34px;padding:4px 10px;border-radius:17px;border:1px solid var(--tg-theme-section-separator-color);background:none;color:var(--tg-theme-text-color);font:13px system-ui,sans-serif}
 .ch button.on{background:var(--tg-theme-secondary-bg-color);border-color:var(--tg-theme-text-color);font-weight:600}
 .ch i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
-.ch span{font-family:ui-monospace,monospace;color:var(--tg-theme-hint-color)}
+.ch span{color:var(--tg-theme-hint-color)}
 .qt{margin-top:10px;padding:8px 10px;border-radius:12px;background:var(--tg-theme-secondary-bg-color);font-size:14px;user-select:text;-webkit-user-select:text}
-.qt b{display:block;font:600 11px ui-monospace,monospace;color:var(--tg-theme-hint-color);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
+.qt b{display:block;font:600 13px system-ui,sans-serif;color:var(--tg-theme-hint-color);margin-bottom:2px}
 @media (prefers-reduced-motion:reduce){.c.p{animation:none}}
 </style>
 <div class="l" id="h"></div>
 <div class="cal" id="g"></div>
 <div id="q"></div>
 <div class="ch" id="t"></div>
-<div class="l">Чаще вместе · нажмите, чтобы найти дни</div>
+<div class="l">Часто в одной записи</div>
 <div class="ch" id="p"></div>
 <script>
 var W=window.TelegramWidget,E={'работа':'💼','тревога':'🌀','сон':'🌙','отношения':'💞','спорт':'🏃','деньги':'💰'},

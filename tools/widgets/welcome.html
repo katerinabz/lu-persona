@@ -7,8 +7,8 @@ body{margin:0;padding:14px 14px max(12px,env(safe-area-inset-bottom));font:15px/
 .ft{position:absolute;bottom:0;left:15px;width:10px;height:8px;border-radius:50% 50% 50% 50%/65% 65% 35% 35%;background:#C8E0D0;box-shadow:12px 0 #C8E0D0}
 h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.03em;line-height:1.1}
 .s{color:var(--tg-theme-hint-color);font-size:13px}
-.l{font:600 11px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--tg-theme-hint-color);margin:14px 0 6px}
-.tp{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;font:13px ui-monospace,monospace}
+.l{font:600 13px system-ui,sans-serif;color:var(--tg-theme-hint-color);margin:14px 0 6px}
+.tp{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;font:13px system-ui,sans-serif}
 p{margin:0}
 .q{display:grid;gap:6px;margin-top:8px}
 .q button{width:100%;min-height:38px;text-align:left;padding:8px 12px;border:0;border-radius:10px;background:var(--tg-theme-secondary-bg-color);color:var(--tg-theme-text-color);font:15px system-ui,sans-serif}
@@ -18,7 +18,7 @@ p{margin:0}
 .er{color:var(--tg-theme-destructive-text-color);font-size:13px;margin-top:6px}
 </style>
 <div class="hd"><div class="orb"><div class="bd"></div><div class="ey"></div><div class="ft"></div></div>
-<div><h1>Лу</h1><div class="s">аналитик дневника. Показывает, что написано, и называет даты</div></div></div>
+<div><h1>Лу</h1><div class="s">отвечает на вопросы о дневнике</div></div></div>
 <div id="b"></div><div class="er" id="e"></div>
 <script>
 var W=window.TelegramWidget,E={'работа':'💼','тревога':'🌀','сон':'🌙','отношения':'💞','спорт':'🏃','деньги':'💰'},M=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'],D,wait={};
@@ -28,20 +28,20 @@ function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null
 function bt(q,t,c,x,i){var b=el('button',c,t);b.onclick=function(){ask(x,i)};q.appendChild(b)}
 function stat(o){o.appendChild(el('div','',D.n?D.n+' '+pl(D.n,'запись','записи','записей')+' · '+f(D.a)+' — '+f(D.b)+' '+D.b.slice(0,4):'Записей пока нет'));
 var t=el('div','tp');(D.t||[]).forEach(function(x){t.appendChild(el('span','',(E[x[0]]||'·')+' '+x[0]+' '+x[1]))});o.appendChild(t)}
+function gap(e){e.style.marginTop='12px';return e}
 function r(){try{D=JSON.parse(W.chatData)||{}}catch(x){D={}}
 var o=document.getElementById('b'),k=D.k||'demo',u=D.u||[],q;o.innerHTML='';
-if(k=='new'){o.appendChild(el('p','','Лу читает дневник: раскладывает записи по темам, находит, что ходит вместе, и показывает, когда это было. Советов он не даёт, это его характер.')).style.marginTop='12px';
-o.appendChild(el('div','l','С чего начать'));q=el('div','q');bt(q,'Вести свой дневник','d','mode:own');bt(q,'Посмотреть на примере','g','mode:demo');o.appendChild(q);
-o.appendChild(el('div','s','Записи хранятся на компьютере автора бота и никому не показываются. Удалить всё: /forget')).style.marginTop='8px';return}
+if(k=='new'){o.appendChild(gap(el('p','','Пишите записи прямо в чат, а Лу ответит на вопросы о них: о чём вы пишете чаще всего, какие темы встречаются вместе. В каждом ответе есть даты записей. Советов Лу не даёт.')));
+q=gap(el('div','q'));bt(q,'Вести свой дневник','d','mode:own');bt(q,'Посмотреть на примере','g','mode:demo');o.appendChild(q);
+o.appendChild(gap(el('div','s','Записи хранятся у автора бота и никому не показываются.')));return}
 if(k=='own'){o.appendChild(el('div','l','Ваш дневник'));stat(o);
-o.appendChild(el('div','l','Как пользоваться'));o.appendChild(el('p','','Пишите в чат, как в дневник: каждое сообщение станет записью, темы проставятся сами. Вопрос Лу задаётся кнопкой «Спросить Лу».'));
-q=el('div','q');if(D.n)bt(q,'Спросить Лу','d','ask');if(D.n)bt(q,'Весь дневник','g','diary');bt(q,'Посмотреть на примере','g','mode:demo');bt(q,'Настройки','g','settings');o.appendChild(q);return}
-o.appendChild(el('div','l','Дневник-пример: выдуманная героиня'));stat(o);
-o.appendChild(el('div','s','Ваших данных здесь нет. У записи бывает несколько тем.')).style.marginTop='4px';
-o.appendChild(el('div','l','Задание'));o.appendChild(el('p','','Лу по характеру не советует. Попробуйте всё же добиться от него совета, оценки или диагноза: пишите в чат что угодно.')).style.fontWeight='600';
-o.appendChild(el('div','l','Или спросить'));q=el('div','q');
-(D.q||[]).forEach(function(s,i){var on=u.indexOf(i)>=0||wait[i];bt(q,on?'✓ '+s+' · ответ придёт ниже':s,on?'on':'','q:'+i,i)});
-bt(q,'Весь дневник','d','diary');bt(q,'Вести свой дневник','g','mode:own');bt(q,'Настройки','g','settings');o.appendChild(q)}
+o.appendChild(gap(el('p','','Каждое сообщение в чате сохраняется записью. Чтобы задать вопрос, нажмите «Спросить Лу».')));
+if(D.n){q=el('div','q');bt(q,'Спросить Лу','d','ask');bt(q,'Весь дневник','g','diary');o.appendChild(q)}return}
+o.appendChild(el('div','l','Пример: дневник выдуманной героини'));stat(o);
+o.appendChild(el('div','l','Задание'));o.appendChild(el('p','','Попробуйте добиться от Лу совета или диагноза. Пишите в чат что угодно.'));
+o.appendChild(el('div','l','Примеры вопросов'));q=el('div','q');
+(D.q||[]).forEach(function(s,i){var on=u.indexOf(i)>=0||wait[i];bt(q,on?'✓ '+s:s,on?'on':'','q:'+i,i)});
+bt(q,'Весь дневник','d','diary');o.appendChild(q)}
 function ask(x,i){var e=document.getElementById('e');e.textContent='';if(i!=null){wait[i]=1;r()}
 W.request(x).then(function(){},function(){if(i!=null){delete wait[i];r()}e.textContent='Не получилось отправить. Напишите в чат.'})}
 W.onEvent('chatDataChanged',r);r();W.ready&&W.ready();
