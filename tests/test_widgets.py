@@ -129,11 +129,22 @@ class FakeBridge(tg_bridge.Bridge):
     def texts(self):
         return [p.get('text') for m, p in self.calls if m in ('sendMessage', 'editMessageText')]
 
+    def upload(self, method, file_field, filename, content, **params):
+        self.calls.append((method, dict(params, filename=filename, content=content.decode('utf-8'))))
+        return {'message_id': len(self.calls)}
+
+    def buttons(self):
+        """Подписи и данные кнопок последнего сообщения или правки."""
+        p = [p for m, p in self.calls if m in ('sendMessage', 'editMessageText')][-1]
+        kb = (p.get('reply_markup') or {}).get('inline_keyboard') or []
+        return {b['text']: b['callback_data'] for row in kb for b in row}
+
 
 class Base(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
-        self.old = hub.AGENTS, hub.USERS
+        self.old = hub.AGENTS, hub.USERS, hub.STATE
+        hub.STATE = os.path.join(self.dir, 'hub.json')
         hub.AGENTS = os.path.join(self.dir, 'agent')
         hub.USERS = os.path.join(hub.AGENTS, 'users')
         self.stores = []
@@ -141,7 +152,7 @@ class Base(unittest.TestCase):
     def tearDown(self):
         for st in self.stores:
             st.close()
-        hub.AGENTS, hub.USERS = self.old
+        hub.AGENTS, hub.USERS, hub.STATE = self.old
         shutil.rmtree(self.dir)
 
     def msg(self, text, uid=7, mid=100):
@@ -444,6 +455,144 @@ class Delivery(Base):
         b.typing('7')
         b.typing('7', force=True)
         self.assertEqual(b.texts(), [tg_bridge.NOT_ANSWERING])
+
+
+class Editing(Base):
+    def cb(self, b, data, mid=50):
+        b.on_callback({'id': 'c', 'from': {'id': 7}, 'data': data, 'message': {'message_id': mid}})
+
+    def three(self, b):
+        for i, t in enumerate(['Не выспалась', 'Дедлайн на работе', 'Бегала утром']):
+            b.on_message(self.msg(t, mid=200 + i))
+
+    def test_settings_screen(self):
+        b = self.bridge('own')
+        self.three(b)
+        b.on_message(self.msg('Настройки'))
+        self.assertIn(tg_bridge.SETTINGS_OWN % (3, 'записи'), b.texts()[-1])
+        self.assertIn('Очистить мои записи', b.buttons())
+        self.assertIn('Привязать свой ключ', b.buttons())
+
+    def test_list_pages_and_card(self):
+        b = self.bridge('own')
+        for i in range(7):
+            b.store.add_entry(7, 'запись %d' % i)
+        b.on_message(self.msg('Мои записи'))
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.LIST_HEAD % (1, 5, 7)))
+        self.assertIn('Старее →', b.buttons())
+        self.cb(b, 'ls:5')
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.LIST_HEAD % (6, 7, 7)))
+        self.assertEqual(b.calls[-1][0], 'editMessageText')  # экран меняется на месте
+        self.cb(b, b.buttons()['1'])
+        self.assertIn('запись 1', b.texts()[-1])
+        self.assertIn('Изменить текст', b.buttons())
+
+    def test_edit_by_button(self):
+        b = self.bridge('own')
+        b.on_message(self.msg('старый текст'))
+        self.cb(b, 'ed:1')
+        b.on_message(self.msg('Не спала из-за начальника'))
+        e = b.store.entry(7, 1)
+        self.assertEqual((e['text'], e['topics']), ('Не спала из-за начальника', ['работа', 'сон']))
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.EDIT_DONE))
+        self.assertEqual(len(b.store.entries(7)), 1)
+
+    def test_edit_cancel(self):
+        b = self.bridge('own')
+        b.on_message(self.msg('текст'))
+        self.cb(b, 'ed:1')
+        self.cb(b, 'ed:cancel')
+        b.on_message(self.msg('новая запись'))
+        self.assertEqual(len(b.store.entries(7)), 2)
+
+    def test_edit_in_chat(self):
+        b = self.bridge('own')
+        b.on_message(self.msg('старый текст', mid=300))
+        reply_id = len(b.calls)
+        b.on_edited_message(dict(self.msg('Поссорилась с мамой', mid=300)))
+        self.assertEqual(b.store.entry(7, 1)['topics'], ['отношения'])
+        m, p = b.calls[-1]
+        self.assertEqual((m, p['message_id'], p['text']), ('editMessageText', reply_id, tg_bridge.SAVED_EDITED % 'темы: отношения'))
+
+    def test_edit_of_question_ignored(self):
+        b = self.bridge('demo')
+        b.on_message(self.msg('вопрос', mid=301))
+        n = len(b.calls)
+        b.on_edited_message(dict(self.msg('другой вопрос', mid=301)))
+        self.assertEqual(len(b.calls), n)
+
+    def test_topics_toggle(self):
+        b = self.bridge('own')
+        b.on_message(self.msg('просто день'))
+        self.cb(b, 'tp:1')
+        self.cb(b, b.buttons()['🌙 сон'])
+        self.assertEqual(b.store.entry(7, 1)['topics'], ['сон'])
+        self.assertIn('✓ 🌙 сон', b.buttons())
+        self.cb(b, b.buttons()['✓ 🌙 сон'])
+        self.assertEqual(b.store.entry(7, 1)['topics'], [])
+
+    def test_delete_with_confirm(self):
+        b = self.bridge('own')
+        b.on_message(self.msg('лишнее'))
+        self.cb(b, 'dl:1')
+        self.assertEqual(len(b.store.entries(7)), 1)  # пока только вопрос
+        self.cb(b, b.buttons()['Да, удалить'])
+        self.assertEqual(b.store.entries(7), [])
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.ENTRY_DELETED))
+
+    def test_other_persons_entry_untouchable(self):
+        b = self.bridge('own')
+        b.store.add_entry(8, 'чужая запись')
+        self.cb(b, 'dl!:1')
+        self.cb(b, 'tt:1:0')
+        b.user(7)['awaiting'] = 'edit:1'
+        b.on_message(self.msg('взлом'))
+        self.assertEqual(b.store.entries(8)[0]['text'], 'чужая запись')
+        self.assertEqual(b.store.entries(8)[0]['topics'], [])
+
+    def test_clear_entries_keeps_key_and_resets_memory(self):
+        b = self.bridge('own')
+        self.three(b)
+        b.store.set_key(7, 'k' * 30, 'https://x', 'm')
+        b.on_message(self.msg('/ask вопрос'))
+        self.cb(b, 'set:clear')
+        self.assertEqual(len(b.store.entries(7)), 3)
+        self.cb(b, 'set:clear!')
+        self.assertEqual(b.store.entries(7), [])
+        self.assertEqual(b.store.person(7)['key'], 'k' * 30)
+        self.assertFalse(os.path.exists(hub.home_of(hub.name_of(7, 'own'))))
+        self.assertEqual(b.texts()[-1], tg_bridge.CLEARED % 3)
+
+    def test_forget_memory_keeps_entries(self):
+        b = self.bridge('demo')
+        b.on_message(self.msg('вопрос'))
+        b.store.add_entry(7, 'запись')
+        self.cb(b, 'set:mem')
+        self.cb(b, 'set:mem!')
+        self.assertFalse(os.path.exists(hub.home_of(hub.name_of(7, 'demo'))))
+        self.assertEqual(len(b.store.entries(7)), 1)
+
+    def test_export(self):
+        b = self.bridge('own')
+        self.three(b)
+        self.cb(b, 'set:export')
+        p = [p for m, p in b.calls if m == 'sendDocument'][0]
+        self.assertLess(p['content'].index('Не выспалась'), p['content'].index('Бегала утром'))
+
+    def test_delete_all_from_settings(self):
+        b = self.bridge('own')
+        self.three(b)
+        self.cb(b, 'set:all')
+        self.cb(b, b.buttons()['Удалить всё'])
+        self.assertEqual(b.store.person(7)['mode'], '')
+
+    def test_command_cancels_pending_edit(self):
+        b = self.bridge('own')
+        b.on_message(self.msg('текст'))
+        self.cb(b, 'ed:1')
+        b.on_message(self.msg('Настройки'))
+        b.on_message(self.msg('новая запись'))
+        self.assertEqual(b.store.entry(7, 1)['text'], 'текст')
 
 
 class Dispatcher(Base):

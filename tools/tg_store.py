@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS hiddentheme (
     id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, theme_id INTEGER NOT NULL,
     created_at DATETIME NOT NULL);
 CREATE TABLE IF NOT EXISTS analyticssettings (id INTEGER PRIMARY KEY, tz_offset_minutes INTEGER);
+CREATE TABLE IF NOT EXISTS tgentry (
+    entry_id INTEGER PRIMARY KEY, tg_id INTEGER NOT NULL, message_id INTEGER, reply_id INTEGER);
+CREATE INDEX IF NOT EXISTS tgentry_msg ON tgentry(tg_id, message_id);
 CREATE TABLE IF NOT EXISTS tg (
     tg_id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, mode TEXT NOT NULL DEFAULT '',
     created_at DATETIME NOT NULL, key TEXT, base TEXT, model TEXT);
@@ -128,9 +131,7 @@ class Store(object):
             return 0
         uid = p['user_id']
         n = self.con.execute('SELECT COUNT(*) FROM entry WHERE user_id = ?', (uid,)).fetchone()[0]
-        self.con.execute('DELETE FROM entrytheme WHERE entry_id IN (SELECT id FROM entry WHERE user_id = ?)',
-                         (uid,))
-        self.con.execute('DELETE FROM entry WHERE user_id = ?', (uid,))
+        self._drop_entries(uid)
         self.con.execute('DELETE FROM hiddentheme WHERE user_id = ?', (uid,))
         self.con.execute('DELETE FROM user WHERE id = ?', (uid,))
         self.con.execute('DELETE FROM tg WHERE tg_id = ?', (int(tg_id),))
@@ -138,6 +139,110 @@ class Store(object):
         return n
 
     # --- записи ------------------------------------------------------------------------
+
+    def _drop_entries(self, uid):
+        ids = 'SELECT id FROM entry WHERE user_id = ?'
+        self.con.execute('DELETE FROM entrytheme WHERE entry_id IN (%s)' % ids, (uid,))
+        self.con.execute('DELETE FROM tgentry WHERE entry_id IN (%s)' % ids, (uid,))
+        self.con.execute('DELETE FROM entry WHERE user_id = ?', (uid,))
+
+    def _own(self, tg_id, entry_id):
+        """id записи, если она принадлежит человеку, иначе None. Чужую запись не тронуть по id из кнопки."""
+        uid = self.person(tg_id)['user_id']
+        row = self.con.execute('SELECT id FROM entry WHERE id = ? AND user_id = ?',
+                               (int(entry_id), uid)).fetchone()
+        return row['id'] if row else None
+
+    def _set_topics(self, entry_id, topics):
+        self.con.execute('DELETE FROM entrytheme WHERE entry_id = ?', (entry_id,))
+        for t in topics:
+            self.con.execute('INSERT INTO entrytheme (entry_id, theme_id) '
+                             'SELECT ?, id FROM theme WHERE name = ?', (entry_id, t))
+
+    def link_message(self, tg_id, entry_id, message_id, reply_id=None):
+        """Запомнить сообщение в чате, из которого сделана запись: правка сообщения правит запись."""
+        self.con.execute('INSERT OR REPLACE INTO tgentry (entry_id, tg_id, message_id, reply_id) VALUES (?, ?, ?, ?)',
+                         (int(entry_id), int(tg_id), message_id, reply_id))
+        self.con.commit()
+
+    def by_message(self, tg_id, message_id):
+        """(id записи, id ответа бота) по сообщению человека или None."""
+        row = self.con.execute('SELECT entry_id, reply_id FROM tgentry WHERE tg_id = ? AND message_id = ?',
+                               (int(tg_id), message_id)).fetchone()
+        return (row['entry_id'], row['reply_id']) if row else None
+
+    def entry(self, tg_id, entry_id):
+        """Одна запись человека: id, date, text, topics. None, если записи нет или она чужая."""
+        eid = self._own(tg_id, entry_id)
+        if eid is None:
+            return None
+        return next((r for r in self.listing(tg_id, 0, 10 ** 6) if r['id'] == eid), None)
+
+    def listing(self, tg_id, offset=0, limit=5):
+        """Записи для списка в чате, новые сверху: id, date, text, topics."""
+        uid = self.person(tg_id)['user_id']
+        rows = self.con.execute('SELECT id, content, created_at FROM entry WHERE user_id = ? '
+                                'ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?', (uid, limit, offset)).fetchall()
+        out = []
+        for r in rows:
+            topics = [t['name'] for t in self.con.execute(
+                'SELECT t.name FROM entrytheme et JOIN theme t ON t.id = et.theme_id WHERE et.entry_id = ?',
+                (r['id'],))]
+            local = (datetime.datetime.strptime(str(r['created_at'])[:19], '%Y-%m-%d %H:%M:%S')
+                     + datetime.timedelta(minutes=TZ_OFFSET_MINUTES))
+            out.append({'id': r['id'], 'date': local.strftime('%Y-%m-%d'), 'time': local.strftime('%H:%M'),
+                        'text': r['content'], 'topics': [t for t in TOPICS if t in topics]})
+        return out
+
+    def count(self, tg_id):
+        uid = self.person(tg_id)['user_id']
+        return self.con.execute('SELECT COUNT(*) FROM entry WHERE user_id = ?', (uid,)).fetchone()[0]
+
+    def update_entry(self, tg_id, entry_id, text):
+        """Новый текст записи. Темы проставляются заново. Возвращает темы или None."""
+        eid = self._own(tg_id, entry_id)
+        if eid is None:
+            return None
+        self.con.execute('UPDATE entry SET content = ? WHERE id = ?', (text, eid))
+        topics = tag(text)
+        self._set_topics(eid, topics)
+        self.con.commit()
+        return topics
+
+    def toggle_topic(self, tg_id, entry_id, topic):
+        """Добавить или снять тему у записи. Возвращает темы после правки или None."""
+        e = self.entry(tg_id, entry_id)
+        if e is None or topic not in TOPICS:
+            return None
+        topics = [t for t in TOPICS if (t in e['topics']) != (t == topic)]
+        self._set_topics(e['id'], topics)
+        self.con.commit()
+        return topics
+
+    def delete_entry(self, tg_id, entry_id):
+        eid = self._own(tg_id, entry_id)
+        if eid is None:
+            return False
+        self.con.execute('DELETE FROM entrytheme WHERE entry_id = ?', (eid,))
+        self.con.execute('DELETE FROM tgentry WHERE entry_id = ?', (eid,))
+        self.con.execute('DELETE FROM entry WHERE id = ?', (eid,))
+        self.con.commit()
+        return True
+
+    def clear_entries(self, tg_id):
+        """Удалить все записи, оставив человека, режим и ключ. Возвращает число удалённых."""
+        uid = self.person(tg_id)['user_id']
+        n = self.count(tg_id)
+        self._drop_entries(uid)
+        self.con.commit()
+        return n
+
+    def export_text(self, tg_id):
+        """Все записи человека текстом, старые сверху: для выгрузки файлом."""
+        rows = list(reversed(self.listing(tg_id, 0, 10 ** 6)))
+        parts = ['%s %s · %s\n%s' % (r['date'], r['time'], ', '.join(r['topics']) or 'без темы', r['text'])
+                 for r in rows]
+        return '\n\n'.join(parts) + '\n'
 
     def add_entry(self, tg_id, text):
         """Сохранить запись. Возвращает (id записи, темы)."""
@@ -158,9 +263,7 @@ class Store(object):
                                (int(entry_id), uid)).fetchone()
         if not row:
             return None
-        self.con.execute('DELETE FROM entrytheme WHERE entry_id = ?', (int(entry_id),))
-        self.con.execute('DELETE FROM entry WHERE id = ?', (int(entry_id),))
-        self.con.commit()
+        self.delete_entry(tg_id, entry_id)
         return row['content']
 
     def entries(self, tg_id):

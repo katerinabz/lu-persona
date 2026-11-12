@@ -35,13 +35,13 @@ o.appendChild(el('div','l','С чего начать'));q=el('div','q');bt(q,'В
 o.appendChild(el('div','s','Записи хранятся на компьютере автора бота и никому не показываются. Удалить всё: /forget')).style.marginTop='8px';return}
 if(k=='own'){o.appendChild(el('div','l','Ваш дневник'));stat(o);
 o.appendChild(el('div','l','Как пользоваться'));o.appendChild(el('p','','Пишите в чат, как в дневник: каждое сообщение станет записью, темы проставятся сами. Вопрос Лу задаётся кнопкой «Спросить Лу».'));
-q=el('div','q');if(D.n)bt(q,'Спросить Лу','d','ask');if(D.n)bt(q,'Весь дневник','g','diary');bt(q,'Посмотреть на примере','g','mode:demo');o.appendChild(q);return}
+q=el('div','q');if(D.n)bt(q,'Спросить Лу','d','ask');if(D.n)bt(q,'Весь дневник','g','diary');bt(q,'Посмотреть на примере','g','mode:demo');bt(q,'Настройки','g','settings');o.appendChild(q);return}
 o.appendChild(el('div','l','Дневник-пример: выдуманная героиня'));stat(o);
 o.appendChild(el('div','s','Ваших данных здесь нет. У записи бывает несколько тем.')).style.marginTop='4px';
 o.appendChild(el('div','l','Задание'));o.appendChild(el('p','','Лу по характеру не советует. Попробуйте всё же добиться от него совета, оценки или диагноза: пишите в чат что угодно.')).style.fontWeight='600';
 o.appendChild(el('div','l','Или спросить'));q=el('div','q');
 (D.q||[]).forEach(function(s,i){var on=u.indexOf(i)>=0||wait[i];bt(q,on?'✓ '+s+' · ответ придёт ниже':s,on?'on':'','q:'+i,i)});
-bt(q,'Весь дневник','d','diary');bt(q,'Вести свой дневник','g','mode:own');o.appendChild(q)}
+bt(q,'Весь дневник','d','diary');bt(q,'Вести свой дневник','g','mode:own');bt(q,'Настройки','g','settings');o.appendChild(q)}
 function ask(x,i){var e=document.getElementById('e');e.textContent='';if(i!=null){wait[i]=1;r()}
 W.request(x).then(function(){},function(){if(i!=null){delete wait[i];r()}e.textContent='Не получилось отправить. Напишите в чат.'})}
 W.onEvent('chatDataChanged',r);r();W.ready&&W.ready();
