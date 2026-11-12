@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Пример для фоновой работы цикла Лу на маке. Цикл сам ничего не устанавливает.
+
+  Установка вручную:
+    1. Поправить пути под себя (REPO, python3) и вписать ключ в LU_API_KEY.
+    2. cp deploy/ru.lu.persona.plist ~/Library/LaunchAgents/
+    3. launchctl load ~/Library/LaunchAgents/ru.lu.persona.plist
+  Остановка: touch agent/lu/state/STOP или launchctl unload ~/Library/LaunchAgents/ru.lu.persona.plist
+  Вывод цикла: /tmp/lu-loop.log, журнал событий: logs/<дата>.jsonl в репозитории.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ru.lu.persona</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/USER/dev/lu-persona/tools/loop.py</string>
+        <string>lu</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/USER/dev/lu-persona</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>LANG</key>
+        <string>ru_RU.UTF-8</string>
+        <key>PYTHONIOENCODING</key>
+        <string>utf-8</string>
+        <key>LU_API_KEY</key>
+        <string>ВПИСАТЬ_КЛЮЧ</string>
+        <key>LU_DIARY_FILE</key>
+        <string>demo/дневник.json</string>
+        <key>LU_DAILY_TOKENS</key>
+        <string>150000</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Перезапуск, только если цикл упал. Выход по файлу STOP (код 0) не перезапускается. -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/lu-loop.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/lu-loop.log</string>
+</dict>
+</plist>

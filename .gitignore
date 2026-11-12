@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+logs/
+agent/*/state/next_wake.txt
+agent/*/state/budget.json
+agent/*/state/diary_seen.json
+agent/*/state/session.lock
+agent/*/state/STOP
+agent/*/state/tg.json
+agent/*/state/tg.json.tmp
+
+# люди из Телеграма: дневники, ключи, память Лу о каждом
+data/
+agent/users/

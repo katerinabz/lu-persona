@@ -1,0 +1,48 @@
+<style>
+body{margin:0;padding:12px 14px max(12px,env(safe-area-inset-bottom));font:15px/1.4 system-ui,sans-serif}
+.l{font:600 11px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--tg-theme-hint-color);margin-bottom:8px}
+.r{margin-bottom:6px}
+.tp{font-size:13px;margin:-4px 0 8px}
+.n{font-size:14px;font-weight:600}
+.n span{font:13px ui-monospace,monospace;color:var(--tg-theme-hint-color);font-weight:400}
+svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.ax{display:flex;justify-content:space-between;font:11px ui-monospace,monospace;color:var(--tg-theme-hint-color)}
+.k{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--tg-theme-hint-color);margin-top:8px}
+.k i{width:9px;height:9px;border-radius:50%;border:2px solid var(--tg-theme-text-color)}
+.qt{margin-top:10px;padding:8px 10px;border-radius:12px;background:var(--tg-theme-secondary-bg-color);font-size:14px;user-select:text;-webkit-user-select:text}
+.qt b{display:block;font:600 11px ui-monospace,monospace;color:var(--tg-theme-hint-color);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
+.p{animation:p 1s infinite alternate}@keyframes p{to{r:7}}
+@media (prefers-reduced-motion:reduce){.p{animation:none}}
+</style>
+<div class="l">На что опирается ответ</div>
+<div class="tp">Точка — запись в дневнике. Нажмите, чтобы прочитать её.</div>
+<div id="g"></div>
+<div class="ax"><span id="a0"></span><span id="a1"></span></div>
+<div class="k" id="k"><i></i>дата, названная в ответе</div>
+<div id="q"></div>
+<script>
+var W=window.TelegramWidget,E={'работа':'💼','тревога':'🌀','сон':'🌙','отношения':'💞','спорт':'🏃','деньги':'💰'},
+C={'работа':'#7FA8D8','тревога':'#D98C9C','сон':'#7DB894','отношения':'#D9B26E','спорт':'#6FBFB4','деньги':'#A49CC0'},
+M=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'],D,sel=null,busy=null,txt={},NS='http://www.w3.org/2000/svg';
+function day(i){var d=new Date(D.a+'T12:00:00');d.setDate(d.getDate()+i);return d}
+function f(d){return d.getDate()+' '+M[d.getMonth()]}
+function pl(n,a,b,c){var m=n%10,h=n%100;return m==1&&h!=11?a:m>=2&&m<=4&&(h<10||h>=20)?b:c}
+function X(i){return 6+i*(288/Math.max(1,D.n-1))}
+function s(t,o){var e=document.createElementNS(NS,t);for(var k in o)e.setAttribute(k,o[k]);return e}
+function r(){try{D=JSON.parse(W.chatData)||{}}catch(x){D={}}if(!D.a)return;
+var g=document.getElementById('g'),h=D.h||[];g.innerHTML='';
+D.t.forEach(function(t){var w=document.createElement('div');w.className='r';
+var n=document.createElement('div');n.className='n';n.textContent=(E[t[0]]||'')+' '+t[0]+' ';var c=document.createElement('span');c.textContent=t[1].length+' '+pl(t[1].length,'запись','записи','записей');n.appendChild(c);w.appendChild(n);
+var v=s('svg',{viewBox:'0 0 300 30'});v.appendChild(s('line',{x1:2,x2:298,y1:15,y2:15,style:'stroke:var(--tg-theme-section-separator-color)','stroke-width':1}));
+h.forEach(function(i){var has=t[1].indexOf(i)>=0;v.appendChild(s('circle',{cx:X(i),cy:15,r:has?9:6,fill:'none',style:'stroke:var(--tg-theme-text-color)','stroke-width':2,'stroke-dasharray':has?'':'3 2'}))});
+t[1].forEach(function(i){var on=sel==i;v.appendChild(s('circle',{cx:X(i),cy:15,r:on?7:5,fill:C[t[0]]||'#B0A8C0','class':busy==i?'p':'',style:on?'stroke:var(--tg-theme-text-color)':'','stroke-width':2}))});
+v.onclick=function(e){var b=v.getBoundingClientRect(),x=(e.clientX-b.left)/b.width*300,best=null,bd=99;t[1].concat(h).forEach(function(i){var d=Math.abs(X(i)-x);if(d<bd){bd=d;best=i}});if(best!=null&&bd<24)open(best,t[0])};
+w.appendChild(v);g.appendChild(w)});
+document.getElementById('a0').textContent=f(day(0));document.getElementById('a1').textContent=f(day(D.n-1));
+document.getElementById('k').hidden=!h.length;q()}
+function q(){var b=document.getElementById('q');b.innerHTML='';if(sel==null)return;var d=document.createElement('div');d.className='qt';var l=document.createElement('b');
+var n=[];D.t.forEach(function(t){if(t[1].indexOf(sel)>=0)n.push(t[0])});l.textContent=f(day(sel))+' · '+(n.length?n.join(', '):'по этим темам записи нет')+(busy==sel?' · открываю…':'');d.appendChild(l);d.appendChild(document.createTextNode(busy==sel?'':txt[sel]||''));b.appendChild(d)}
+function open(i){if(sel==i&&busy==null){sel=null;return r()}sel=i;if(txt[i]){busy=null;return r()}busy=i;r();
+W.request('e:'+(D.m?D.m+':':'')+i).then(function(a){txt[i]=a.result||'Записи за этот день нет.';busy=null;r()},function(){txt[i]=null;busy=null;sel=i;r();document.querySelector('.qt').lastChild.textContent='Не удалось открыть запись.'})}
+W.onEvent('chatDataChanged',r);r();W.ready&&W.ready();
+</script>

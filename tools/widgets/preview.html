@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Лу · виджеты · просмотр</title>
+<!-- Имитация чата Телеграма для проверки виджетов в браузере. Данные: python3 tools/tg_widgets.py preview -->
+<style>
+body{margin:0;font:14px system-ui,sans-serif;background:#ddd}
+.cols{display:flex;gap:24px;padding:16px;flex-wrap:wrap;align-items:flex-start}
+.chat{padding:12px;border-radius:12px;display:grid;gap:10px}
+.chat.light{background:#C9DDB8}.chat.dark{background:#0E1621}
+.chat h2{margin:0;font-size:12px;color:#556;font-family:ui-monospace,monospace}
+.dark h2{color:#8899aa}
+.msg{border-radius:14px;overflow:hidden}
+.light .msg{background:#fff;color:#000}.dark .msg{background:#182533;color:#fff}
+.cap{padding:8px 12px 0;font-size:15px;line-height:1.35;white-space:pre-wrap}
+iframe{display:block;border:0;width:100%}
+.user{justify-self:end;max-width:80%;padding:8px 12px;border-radius:14px;font-size:15px}
+.light .user{background:#EFFDDE}.dark .user{background:#2B5278;color:#fff}
+.log{font:12px ui-monospace,monospace;color:#444;padding:0 16px 16px;white-space:pre-wrap}
+</style>
+<script src="preview-data.js"></script>
+</head><body>
+<div class="cols" id="cols"></div>
+<details class="log"><summary>запросы виджетов к серверу</summary><div id="log"></div></details>
+<script>
+var P=window.PREVIEW, ORDER=['welcome','answer','diary','feedback'];
+var THEMES={
+ light:{'bg-color':'#ffffff','text-color':'#000000','hint-color':'#8a8f99','link-color':'#2481cc','button-color':'#3390ec','button-text-color':'#ffffff','secondary-bg-color':'#f1f3f5','section-separator-color':'#e3e6ea','destructive-text-color':'#d14e4e','accent-text-color':'#2481cc'},
+ dark:{'bg-color':'#182533','text-color':'#ffffff','hint-color':'#7d8b99','link-color':'#6ab3f3','button-color':'#5288c1','button-text-color':'#ffffff','secondary-bg-color':'#22303f','section-separator-color':'#2b3a4a','destructive-text-color':'#ec7a66','accent-text-color':'#6ab3f3'}};
+function log(s){document.getElementById('log').textContent+=s+'\n'}
+function mock(name,scheme,id){
+ var vars=Object.keys(THEMES[scheme]).map(function(k){return '--tg-theme-'+k+':'+THEMES[scheme][k]}).join(';');
+ return '<style>:root{'+vars+';color-scheme:'+scheme+'}html,body{background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color)}</style>'+
+ '<script>(function(){var h={},W={chatData:'+JSON.stringify(P.data[name])+',colorScheme:"'+scheme+'",themeParams:{},'+
+ 'onEvent:function(e,f){(h[e]=h[e]||[]).push(f)},ready:function(){},'+
+ 'request:function(d){parent.onReq("'+id+'",d);return new Promise(function(ok,no){setTimeout(function(){var r=parent.answer("'+id+'","'+name+'",d);if(r&&r.err)no({code:r.err});else ok({result:r})},700)})},'+
+ '_set:function(s){W.chatData=s;(h.chatDataChanged||[]).forEach(function(f){f()})}};window.TelegramWidget=W;'+
+ 'new ResizeObserver(function(){parent.size("'+id+'",document.documentElement.scrollHeight)}).observe(document.documentElement)})()<\/script>'+P.code[name];
+}
+var frames={};
+window.onReq=function(id,d){log(id+' → '+d)};
+window.size=function(id,h){var f=frames[id];if(f)f.style.height=Math.min(600,Math.max(50,h))+'px'};
+window.answer=function(id,name,d){
+ if(window.FAIL)return {err:'TIMEOUT'};
+ if(d.indexOf('e:')==0)return P.texts[d.slice(2)]||'Записи за этот день нет.';
+ if(d.indexOf('q:')==0){var w=JSON.parse(P.data.welcome);w.u=(w.u||[]).concat(+d.slice(2));P.data.welcome=JSON.stringify(w);setTimeout(function(){frames[id].contentWindow.TelegramWidget._set(P.data.welcome)},300);return '{"ok":1}'}
+ if(d.indexOf('f:')==0){var p=d.split(':'),f=JSON.parse(P.data.feedback);f.a[p[1]]=p[2];P.data.feedback=JSON.stringify(f);setTimeout(function(){frames[id].contentWindow.TelegramWidget._set(P.data.feedback)},200);return '{"ok":1}'}
+ return '{"ok":1}'};
+var W=+(new URLSearchParams(location.search).get('w')||360);
+['light','dark'].forEach(function(scheme){
+ var c=document.createElement('div');c.className='chat '+scheme;c.style.width=W+'px';
+ c.innerHTML='<h2>'+scheme+' · '+W+'px</h2>';
+ ORDER.forEach(function(name){
+  if(name=='answer'){var u=document.createElement('div');u.className='user';u.textContent='Лу, мне стоит уходить с этой работы?';c.appendChild(u)}
+  var m=document.createElement('div');m.className='msg';
+  if(P.caption[name]){var cp=document.createElement('div');cp.className='cap';cp.textContent=P.caption[name];m.appendChild(cp)}
+  var id=scheme+'-'+name,f=document.createElement('iframe');f.style.height='120px';frames[id]=f;f.srcdoc=mock(name,scheme,id);m.appendChild(f);c.appendChild(m)});
+ document.getElementById('cols').appendChild(c)});
+</script>
+</body></html>

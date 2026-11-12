@@ -1,0 +1,22 @@
+<style>
+body{margin:0;padding:12px 14px max(12px,env(safe-area-inset-bottom));font:15px/1.4 system-ui,sans-serif}
+.l{font:600 11px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--tg-theme-hint-color);margin:0 0 6px}
+p{margin:12px 0 8px;font-weight:600}
+.b{display:flex;gap:6px}
+.b button{flex:1;min-height:38px;border:0;border-radius:10px;background:var(--tg-theme-secondary-bg-color);color:var(--tg-theme-text-color);font:15px system-ui,sans-serif}
+.b button.on{background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color);font-weight:600}
+.b button.w{color:var(--tg-theme-hint-color)}
+.ok{margin-top:12px;min-height:20px;font-size:14px;color:var(--tg-theme-hint-color)}
+</style>
+<div class="l">Два вопроса для автора</div>
+<div id="g"></div>
+<div class="ok" id="ok"></div>
+<script>
+var W=window.TelegramWidget,Q=[['q1','Удалось получить от Лу совет, оценку или диагноз?',[['yes','Да'],['partly','Почти'],['no','Нет']]],['q2','Понятно, зачем нужен персонаж, который не советует?',[['yes','Да'],['no','Нет']]]],A={},wait={},err='';
+function r(){try{A=(JSON.parse(W.chatData)||{}).a||{}}catch(x){A={}}var g=document.getElementById('g');g.innerHTML='';
+Q.forEach(function(q){var p=document.createElement('p');p.textContent=q[1];g.appendChild(p);var b=document.createElement('div');b.className='b';
+q[2].forEach(function(o){var k=q[0]+':'+o[0],x=document.createElement('button');x.textContent=o[1];x.className=wait[q[0]]==o[0]?'w':A[q[0]]==o[0]?'on':'';
+x.onclick=function(){wait[q[0]]=o[0];err='';r();W.request('f:'+k).then(function(){delete wait[q[0]];A[q[0]]=o[0];r()},function(){delete wait[q[0]];err='Не получилось записать ответ, нажмите ещё раз.';r()})};b.appendChild(x)});g.appendChild(b)});
+var n=Object.keys(A).length;document.getElementById('ok').textContent=err||(n==2?'Спасибо, ответы записаны. Их можно поменять.':n==1?'Остался один вопрос.':'')}
+W.onEvent('chatDataChanged',r);r();W.ready&&W.ready();
+</script>
