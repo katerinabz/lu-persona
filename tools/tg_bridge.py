@@ -40,6 +40,7 @@ LU_TG_GLOBAL_LIMIT на всех (150). Записи в дневник без л
 """
 import argparse
 import datetime
+import html
 import io
 import json
 import os
@@ -276,6 +277,18 @@ def diary_text(rows, mode):
     else:
         lines += ['', 'Спросить, почему так: «💬 Спросить Лу» внизу.']
     return '\n'.join(lines).strip()
+
+
+def answer_html(text):
+    """Ответ Лу для чата: первая фраза жирным, остальные отдельными пунктами. Сплошной абзац
+    из пяти-шести фраз с датами читать неудобно (Катя, 14.11.2026)."""
+    esc = lambda t: html.escape(t, quote=False)
+    if '\n' in text.strip():
+        return esc(text.strip())
+    parts = [p.strip() for p in re.split(r'(?<=[.!?…])\s+(?=[А-ЯЁA-Z«"])', text.strip()) if p.strip()]
+    if len(parts) < 3:
+        return esc(text.strip())
+    return '<b>%s</b>\n\n%s' % (esc(parts[0]), '\n'.join('• ' + esc(p) for p in parts[1:]))
 
 
 MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь',
@@ -1015,7 +1028,7 @@ class Bridge(object):
             data = None
         if data and len(text) <= 1024 and self.widget(uid, 'answer', data, text, above=True):
             return
-        self.send(uid, text)
+        self.send(uid, answer_html(text), html=True)
         if data and len(text) > 1024:
             self.widget(uid, 'answer', data, ANSWER_SHORT_CAPTION)
 

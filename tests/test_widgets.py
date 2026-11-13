@@ -697,3 +697,12 @@ class Dispatcher(Base):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class AnswerFormat(unittest.TestCase):
+    def test_long_answer_becomes_points(self):
+        out = tg_bridge.answer_html('Про сон 9 записей. В трёх «легла в три». В двух <разбитая>.')
+        self.assertEqual(out, '<b>Про сон 9 записей.</b>\n\n• В трёх «легла в три».\n• В двух &lt;разбитая&gt;.')
+
+    def test_short_answer_stays(self):
+        self.assertEqual(tg_bridge.answer_html('Записей нет. Сравнить не с чем.'), 'Записей нет. Сравнить не с чем.')
