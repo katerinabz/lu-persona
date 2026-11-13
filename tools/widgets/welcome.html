@@ -1,11 +1,12 @@
 <style>
 body{margin:0;padding:14px 14px max(12px,env(safe-area-inset-bottom));font:15px/1.4 system-ui,sans-serif}
 .hd{display:flex;gap:12px;align-items:center}
-.orb{position:relative;width:52px;height:52px;flex:none}
+.orb{position:relative;width:60px;height:60px;flex:none}
 .bd{position:absolute;inset:0 0 6px;border-radius:50%;background:radial-gradient(ellipse 50% 40% at 70% 22%,#fff,transparent 55%),linear-gradient(165deg,#DCE8F0,#D5E8E0 50%,#DEEAD8)}
-.ey{position:absolute;top:19px;left:17px;width:5px;height:6px;border-radius:50%;background:#1A1A4A;box-shadow:13px 0 #1A1A4A}
-.ft{position:absolute;bottom:0;left:15px;width:10px;height:8px;border-radius:50% 50% 50% 50%/65% 65% 35% 35%;background:#C8E0D0;box-shadow:12px 0 #C8E0D0}
-h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.03em;line-height:1.1}
+.ey{position:absolute;top:22px;left:20px;width:6px;height:7px;border-radius:50%;background:#1A1A4A;box-shadow:15px 0 #1A1A4A}
+.ft{position:absolute;bottom:0;left:17px;width:12px;height:9px;border-radius:50% 50% 50% 50%/65% 65% 35% 35%;background:#C8E0D0;box-shadow:14px 0 #C8E0D0}
+h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1.05}
+.hs{font-size:19px;font-weight:600;line-height:1.2;margin-top:2px}
 .s{color:var(--tg-theme-hint-color);font-size:13px}
 .l{font:600 13px system-ui,sans-serif;color:var(--tg-theme-hint-color);margin:14px 0 6px}
 .tp{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;font:13px system-ui,sans-serif}
@@ -15,11 +16,22 @@ p{margin:0}
 .q button.on{color:var(--tg-theme-hint-color)}
 .q button.d{background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color);text-align:center;font-weight:600}
 .q button.g{text-align:center}
-.st{display:grid;grid-template-columns:22px 1fr;gap:8px 4px;margin-top:12px}.st b{color:var(--tg-theme-hint-color);font-weight:600}
+.df{font-size:21px;line-height:1.2;font-weight:700;margin-top:14px;letter-spacing:-.01em}
+.ld2{font-size:15px;line-height:1.4;margin-top:8px}
+.ld{font-size:17px;line-height:1.35;font-weight:500;margin-top:14px}
+.cap{margin-top:14px;font:600 13px system-ui;color:var(--tg-theme-hint-color)}
+.cal{margin-top:6px;display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal i{aspect-ratio:1;border-radius:8px;background:var(--tg-theme-secondary-bg-color);font:11px system-ui;font-style:normal;color:var(--tg-theme-hint-color);display:flex;align-items:flex-start;justify-content:flex-start;padding:4px 5px;box-sizing:border-box}
+.cal i.w{background:#4C7DFF;color:#fff}.cal i.s{background:#9B7BFF;color:#fff}.cal i.ws{background:linear-gradient(135deg,#4C7DFF 50%,#9B7BFF 50%);color:#fff}
+.lg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;margin-top:8px}.lg span:before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--k)}
+.ins{margin-top:12px;background:var(--tg-theme-secondary-bg-color);border-radius:14px;padding:11px 13px;font-size:15px;line-height:1.35}
+.ins b{color:#8E6BFF;font-weight:600}
+.tx{margin-top:12px;font-size:14px}
+.ft2{font-size:14px;color:var(--tg-theme-text-color);opacity:.65}
 .er{color:var(--tg-theme-destructive-text-color);font-size:13px;margin-top:6px}
 </style>
 <div class="hd"><div class="orb"><div class="bd"></div><div class="ey"></div><div class="ft"></div></div>
-<div><h1>Лу</h1><div class="s">умный дневник</div></div></div>
+<div><h1>Лу</h1><div class="hs">умный дневник</div></div></div>
 <div id="b"></div><div class="er" id="e"></div>
 <script>
 var W=window.TelegramWidget,E={'работа':'💼','тревога':'🌀','сон':'🌙','отношения':'💞','спорт':'🏃','деньги':'💰'},M=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'],D,wait={};
@@ -27,15 +39,17 @@ function pl(n,a,b,c){var m=n%10,h=n%100;return m==1&&h!=11?a:m>=2&&m<=4&&(h<10||
 function f(s){var p=s.split('-');return +p[2]+' '+M[p[1]-1]}
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
 function bt(q,t,c,x,i){var b=el('button',c,t);b.onclick=function(){ask(x,i)};q.appendChild(b)}
-function stat(o){o.appendChild(el('div','',D.n?D.n+' '+pl(D.n,'запись','записи','записей')+' · '+f(D.a)+' — '+f(D.b)+' '+D.b.slice(0,4):'Записей пока нет'));
+function stat(o){o.appendChild(el('div','',D.n?D.n+' '+pl(D.n,'запись','записи','записей')+' · '+f(D.a)+' - '+f(D.b)+' '+D.b.slice(0,4):'Записей пока нет'));
 var t=el('div','tp');(D.t||[]).forEach(function(x){t.appendChild(el('span','',(E[x[0]]||'·')+' '+x[0]+' '+x[1]))});o.appendChild(t)}
 function gap(e){e.style.marginTop='12px';return e}
 function r(){try{D=JSON.parse(W.chatData)||{}}catch(x){D={}}
 var o=document.getElementById('b'),k=D.k||'demo',u=D.u||[],q;o.innerHTML='';
-if(k=='new'){o.appendChild(gap(el('p','','Пишите сюда, как прошёл день, а Лу заметит то, что трудно увидеть самому.')));
-var st=el('div','st');['Пишете в чат, как прошёл день. Каждое сообщение сохраняется записью.','Спрашиваете Лу, например: «Почему я плохо сплю?»','Лу отвечает по вашим записям и показывает даты. Советов не даёт.'].forEach(function(x,i){st.appendChild(el('b','',i+1+'.'));st.appendChild(el('div','',x))});o.appendChild(st);
-q=gap(el('div','q'));bt(q,'Начать свой дневник','d','mode:own');bt(q,'Сначала посмотреть пример','g','mode:demo');o.appendChild(q);
-o.appendChild(gap(el('div','s','Записи хранятся у создателя бота и никому не показываются. Удалить их можно в настройках.')));return}
+if(k=='new'){document.querySelector('.hs').style.display='none';o.appendChild(el('p','df','Лу - это умный дневник с\u00a0ИИ.'));o.appendChild(el('p','ld2','Вы пишете сюда записи, как в\u00a0обычный дневник. Лу помогает понять, от\u00a0чего зависят ваш сон и\u00a0настроение, и\u00a0показывает связи между записями.'));o.appendChild(el('div','cap','Например, так Лу видит чужой дневник за\u00a0две недели октября:'));var c=el('div','cal'),W2={1:'w',3:'ws',5:'ws',6:'s',8:'w',9:'ws',11:'ws',12:'s'};
+for(var d=1;d<=14;d++)c.appendChild(el('i',W2[d]||'',d));o.appendChild(c);
+var g=el('div','lg');[['#4C7DFF','работа допоздна'],['#9B7BFF','плохой сон'],['linear-gradient(135deg,#4C7DFF 50%,#9B7BFF 50%)','и то и другое']].forEach(function(x){var sp=el('span','',x[1]);sp.style.setProperty('--k',x[0]);g.appendChild(sp)});o.appendChild(g);
+var n=el('div','ins');n.appendChild(document.createTextNode('Плохой сон '));n.appendChild(el('b','','4 раза из 6'));n.appendChild(document.createTextNode(' совпал с работой допоздна: 3, 5, 9 и 11 октября.'));o.appendChild(n);
+q=gap(el('div','q'));bt(q,'Записать первый день','d','mode:own');bt(q,'Попробовать на примере','g','mode:demo');o.appendChild(q);
+o.appendChild(gap(el('div','s ft2','Записи никому не показываются. Удалить их можно в настройках.')));return}
 if(k=='own'){o.appendChild(el('div','l','Ваш дневник'));stat(o);
 if(D.n){q=gap(el('div','q'));bt(q,'Спросить Лу','d','ask');bt(q,'Весь дневник','g','diary');o.appendChild(q)}return}
 o.appendChild(el('div','l','Пример: дневник выдуманной героини'));stat(o);
