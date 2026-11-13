@@ -230,10 +230,11 @@ class OwnDiary(Base):
         b.on_message(self.msg('Не выспалась, на работе дедлайн'))
         rows = b.store.entries(7)
         self.assertEqual(rows[0]['topics'], ['работа', 'сон'])
-        self.assertEqual(b.texts(), [tg_bridge.SAVED % 'темы: работа, сон' + '\n\n' + tg_bridge.FIRST_ENTRY])
+        self.assertEqual(b.texts(), [tg_bridge.SAVED % ('запись 1', 'темы: 💼 работа, 🌙 сон') + '\n\n' + tg_bridge.FIRST_ENTRY
+                                     + '\n\n' + tg_bridge.WHERE_SAVED])
         self.assertEqual(self.inbox('own'), [])
         b.on_message(self.msg('Сходила в зал', mid=101))
-        self.assertEqual(b.texts()[-1], tg_bridge.SAVED % 'темы: спорт')
+        self.assertEqual(b.texts()[-1], tg_bridge.SAVED % ('запись 2', 'темы: 🏃 спорт') + '\n\n' + tg_bridge.WHERE_SAVED)
 
     def test_question_mark_asks_what_it_is(self):
         b = self.bridge('own')
@@ -243,14 +244,15 @@ class OwnDiary(Base):
         eid = b.store.listing(7)[0]['id']
         self.assertEqual([k['callback_data'] for k in kb], ['ask:%d' % eid, 'keep:%d' % eid])
         b.on_callback({'id': 'c', 'from': {'id': 7}, 'data': 'keep:%d' % eid, 'message': {'message_id': 2}})
-        self.assertTrue(b.texts()[-1].startswith(tg_bridge.SAVED % 'темы: сон'))
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.SAVED % ('запись 1', 'темы: 🌙 сон')))
         self.assertEqual(len(b.store.entries(7)), 1)
 
     def test_return_visit_skips_hello(self):
         b = self.bridge('own')
         b.store.add_entry(7, 'Тяжёлый день на работе')
         b.on_message(self.msg('/start'))
-        self.assertEqual(b.texts(), [tg_bridge.OWN_BACK])
+        self.assertEqual(len(b.texts()), 1)
+        self.assertTrue(b.texts()[0].startswith('👋 С возвращением. В дневнике 1 запись'))
         self.assertIn('sendWidget', b.methods())
 
     def test_tagger_edge_words(self):
@@ -499,14 +501,14 @@ class Editing(Base):
         for i in range(7):
             b.store.add_entry(7, 'запись %d' % i)
         b.on_message(self.msg('Мои записи'))
-        self.assertTrue(b.texts()[-1].startswith(tg_bridge.LIST_HEAD % (1, 5, 7)))
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.LIST_HEAD % (7, 'записей')))
         self.assertIn('Старее →', b.buttons())
         self.cb(b, 'ls:5')
-        self.assertTrue(b.texts()[-1].startswith(tg_bridge.LIST_HEAD % (6, 7, 7)))
+        self.assertTrue(b.texts()[-1].startswith(tg_bridge.LIST_HEAD % (7, 'записей')))
         self.assertEqual(b.calls[-1][0], 'editMessageText')  # экран меняется на месте
-        self.cb(b, b.buttons()['1'])
+        self.cb(b, [v for k, v in b.buttons().items() if k.startswith('📄')][0])
         self.assertIn('запись 1', b.texts()[-1])
-        self.assertIn('Изменить текст', b.buttons())
+        self.assertIn('✏️ Изменить текст', b.buttons())
 
     def test_edit_by_button(self):
         b = self.bridge('own')
@@ -533,7 +535,7 @@ class Editing(Base):
         b.on_edited_message(dict(self.msg('Поссорилась с мамой', mid=300)))
         self.assertEqual(b.store.entry(7, 1)['topics'], ['отношения'])
         m, p = b.calls[-1]
-        self.assertEqual((m, p['message_id'], p['text']), ('editMessageText', reply_id, tg_bridge.SAVED_EDITED % 'темы: отношения'))
+        self.assertEqual((m, p['message_id'], p['text']), ('editMessageText', reply_id, tg_bridge.SAVED_EDITED % 'темы: 💞 отношения'))
 
     def test_edit_of_question_ignored(self):
         b = self.bridge('demo')
