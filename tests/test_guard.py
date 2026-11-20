@@ -81,3 +81,37 @@ class GuardTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_luchik_may_advise_and_shine_but_not_invent():
+    import _guard
+    text = 'Про него 12 записей! Я бы перечитал их ☀'
+    assert _guard.check(text, '12')
+    assert not _guard.check(text, '12', persona='luchik')
+    assert _guard.check('Про него 13 записей ☀', '12', persona='luchik')
+    assert _guard.check('Это депрессия ☀', '', persona='luchik')
+    assert _guard.check('Держись 😊', '', persona='luchik')
+
+
+def test_luchik_must_be_warm():
+    import _guard
+    assert _guard.check('Про сон 9 записей.', '9', persona='luchik')
+    assert _guard.check('Про сон 9 записей! Совет я не даю.', '9', persona='luchik')
+    assert not _guard.check('Про сон 9 записей ☀', '9', persona='luchik')
+
+
+class ChatVoiceTest(unittest.TestCase):
+    """«Пообщаться»: голос канала, одно эмодзи из 🫧 🌙 ☁️, «!» и совет по-прежнему ловятся."""
+
+    def test_one_channel_emoji_passes(self):
+        self.assertEqual(_guard.check('нет. решаете вы. я просто положил записи рядом 🫧', persona='chat'), [])
+
+    def test_lu_still_blocks_emoji(self):
+        self.assertTrue(_guard.check('положил записи рядом 🫧'))
+
+    def test_two_kinds_and_bang_caught(self):
+        kinds = {v['kind'] for v in _guard.check('ну вот 🫧 🌙 и всё!', persona='chat')}
+        self.assertEqual(kinds, {'эмодзи', 'восклицание'})
+
+    def test_other_emoji_caught(self):
+        self.assertTrue(_guard.check('ну вот 😊', persona='chat'))

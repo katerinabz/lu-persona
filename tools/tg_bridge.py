@@ -66,6 +66,7 @@ TYPING_EVERY = 4        # секунд: «печатает…» в Телегр�
 WAIT_NOTICE = 120       # секунд без ответа Лу до сообщения, что он задерживается
 WAIT_GIVE_UP = 600      # после этого «печатает…» больше не показывается
 STATE = os.path.join(ROOT, 'data', 'tg.json')
+POSTS = os.environ.get('LU_CHANNEL_POSTS', os.path.join(ROOT, 'data', 'channel_posts.json'))
 
 # --- тексты ------------------------------------------------------------------------------
 
@@ -82,7 +83,7 @@ INTRO_NEW = (  # HTML: отправляется с parse_mode
     '<b>Как это устроено</b>\n'
     '1️⃣ Вы пишете сюда сообщение - оно сохраняется записью в дневник\n'
     '2️⃣ Все записи лежат в разделе «📖 Мои записи», кнопка появится внизу\n'
-    '3️⃣ Когда записей несколько, нажимаете «💬 Спросить Лу» и задаёте вопрос\n\n'
+    '3️⃣ Когда записей несколько, нажимаете «💬 Пообщаться с Лу» и задаёте вопрос\n\n'
     '💬 Например, на вопрос «Почему я плохо сплю?» Лу ответит:\n'
     '<i>«Плохой сон в 4 записях из 6. Все четыре раза совпали с работой допоздна: 3, 5, 9 и 11 октября».</i>\n\n'
     '🔒 Записи никому не показываются. Удалить их можно в настройках.')
@@ -91,7 +92,7 @@ OWN_HELLO = ('✍️ Дневник создан.\n\n'
              'Кнопки внизу:\n'
              '📖 Мои записи - все записи, их можно открыть, изменить и удалить\n'
              '📅 Календарь - в какие дни вы писали и о чём\n'
-             '💬 Спросить Лу - вопрос о ваших записях')
+             '💬 Пообщаться с Лу - вопросы о записях, ответ текстом или голосом')
 OWN_BACK = ('👋 С возвращением. В дневнике %d %s, последняя от %s.\n\n'
             'Новая запись: просто напишите сюда. Все записи: «📖 Мои записи» внизу.')
 DEMO_HELLO = ('📖 Открыт пример: чужой дневник выдуманной героини, 34 записи за июнь и июль 2026 года. '
@@ -99,8 +100,8 @@ DEMO_HELLO = ('📖 Открыт пример: чужой дневник выд�
               'Ваши записи на месте, вернуться к ним: «← Мой дневник» внизу.')
 DEMO_PICK = 'Спросите Лу о героине: нажмите вопрос или напишите свой 👇'
 FIRST_ENTRY = ('Это первая запись 🎉 Пишите так каждый день или когда хочется. '
-               'Через несколько записей нажмите «💬 Спросить Лу» внизу, и Лу найдёт, что повторяется.')
-THIRD_ENTRY = 'Записей уже три. Можно спросить Лу, например: «О чём я пишу чаще всего?» Кнопка «💬 Спросить Лу» внизу.'
+               'Через несколько записей нажмите «💬 Пообщаться с Лу» внизу, и Лу найдёт, что повторяется.')
+THIRD_ENTRY = 'Записей уже три. Можно спросить Лу, например: «О чём я пишу чаще всего?» Кнопка «💬 Пообщаться с Лу» внизу.'
 WHERE_SAVED = 'Все записи: «📖 Мои записи» внизу.'
 QUESTION_OR_ENTRY = '🤔 Это вопрос к Лу или запись в дневник?'
 CHOOSE = 'Сначала выберите: свой дневник или пример.'
@@ -115,10 +116,38 @@ SAVED_AS_QUESTION = '💬 Отправлено Лу как вопрос. Отв�
 ASK_PROMPT = '💬 Напишите вопрос о своих записях или нажмите готовый 👇'
 ASK_PROMPT_SHORT = '💬 Напишите вопрос или нажмите готовый 👇'
 ASK_CANCELLED = 'Отменено.'
+CHAT_EMPTY = 'В дневнике пока нет записей, но поговорить с Лу можно уже сейчас. Записать день: «✍️ Писать в дневник».'
 NEED_ENTRIES = 'Лу отвечает по вашим записям, а их пока нет. Напишите первую прямо сюда ✍️'
 DEMO_ASK = 'Пишите вопрос прямо в чат.'
 
-ONLY_TEXT = 'Лу понимает только текст.'
+ONLY_TEXT = 'Лу понимает текст и голосовые.'
+HEARD = '🎙 Распознано: «%s»'
+HEAR_FAIL = 'Не получилось распознать голосовое. Попробуйте ещё раз или напишите текстом.'
+
+CHAT_HELLO = ('💬 <b>Разговор с Лу</b>\n\n'
+              'Пишите или говорите голосом, Лу ответит. '
+              'В этом режиме сообщения в дневник не сохраняются.\n\n'
+              'Лу отвечает %s. Переключить можно кнопкой внизу.\n\n'
+              '☀ Понравился ответ — подарите Лу солнышко кнопкой под ним. '
+              'За 10 солнышек откроется Лучик: тёплый режим, в котором Лу может подсказать по записям.\n\n'
+              'Вернуться к записям: «✍️ Писать в дневник».')
+CHAT_OFF = '✍️ Режим дневника: сообщения снова сохраняются записями.'
+VOICE_ON_MSG = '🔊 Лу будет отвечать короткими голосовыми.'
+VOICE_OFF_MSG = '📝 Лу будет отвечать текстом. Озвучить отдельный ответ можно кнопкой под ним.'
+ABOUT = ('🌙 <b>Кто такой Лу</b>\n\n'
+         'Лу читает ваш дневник и показывает, что в нём написано: что повторяется, что с чем совпадает и когда это было. '
+         'Советов и диагнозов Лу не даёт, решение остаётся за вами.\n\n'
+         '<b>Как он отвечает</b>\n'
+         '• числа и даты берутся только из ваших записей, код проверяет ответ до отправки\n'
+         '• если в записях ответа нет, Лу так и скажет\n'
+         '• находит записи по смыслу, даже если вы писали другими словами\n'
+         '• помнит прошлые разговоры с вами\n\n'
+         '<b>Что можно делать</b>\n'
+         '✍️ писать записи текстом или голосом\n'
+         '💬 пообщаться с Лу: ответ текстом или голосом\n'
+         '📖 смотреть, править и удалять записи\n'
+         '☀ дарить Лу солнышки за ответы: за 10 открывается Лучик, тёплый режим с подсказками по записям\n\n'
+         '🔒 Записи видите только вы. Удалить всё можно в настройках.')
 LIMIT_USER = ('Вопросы на сегодня закончились, завтра будет ещё %d. Записи можно делать без ограничений.\n\n'
               'Свой API-ключ снимает лимит: /key.')
 LIMIT_ALL = 'Общий лимит вопросов на сегодня закончился, он обновится в полночь. Свой API-ключ снимает лимит: /key.'
@@ -164,14 +193,21 @@ EDIT_CANCELLED = 'Отменено.'
 SAVED_EDITED = 'Изменено · %s'
 EXPORT_CAPTION = 'Все ваши записи.'
 
-BTN_ASK, BTN_MY_DIARY, BTN_EXAMPLE = '💬 Спросить Лу', '📖 Мои записи', '👀 Пример дневника'
+BTN_ASK, BTN_MY_DIARY, BTN_EXAMPLE = '💬 Пообщаться с Лу', '📖 Мои записи', '👀 Пример дневника'
 BTN_CALENDAR = '📅 Календарь'
 BTN_DEMO_DIARY, BTN_OWN, BTN_SETTINGS = '📖 Дневник героини', '← Мой дневник', '⚙️ Настройки'
-KEYBOARD = {'own': [[BTN_ASK, BTN_MY_DIARY], [BTN_CALENDAR, BTN_SETTINGS]],
-            'demo': [[BTN_DEMO_DIARY, BTN_OWN], [BTN_SETTINGS]]}
-BUTTONS = {BTN_ASK, BTN_MY_DIARY, BTN_EXAMPLE, BTN_CALENDAR, BTN_DEMO_DIARY, BTN_OWN, BTN_SETTINGS}
+KEYBOARD = {'own': [[BTN_ASK, BTN_MY_DIARY], [BTN_CALENDAR, BTN_SETTINGS], ['ℹ️ Про Лу']],
+            'demo': [[BTN_DEMO_DIARY, BTN_OWN], ['🔊 Отвечать голосом'], [BTN_SETTINGS, 'ℹ️ Про Лу']]}
+BTN_TO_DIARY, BTN_ABOUT = '✍️ Писать в дневник', 'ℹ️ Про Лу'
+BTN_VOICE_ON, BTN_VOICE_OFF = '🔊 Отвечать голосом', '📝 Отвечать текстом'
+BTN_START_OWN, BTN_START_DEMO = '✍️ Начать свой дневник', '👀 Попробовать на примере'
+CHOICE_KB = [[BTN_START_OWN, BTN_START_DEMO], ['💬 Пообщаться с Лу']]
+CHOICE_MODES = {BTN_START_OWN: 'own', BTN_START_DEMO: 'demo'}
+BUTTONS = {BTN_START_OWN, BTN_START_DEMO, BTN_ASK, BTN_MY_DIARY, BTN_EXAMPLE, BTN_CALENDAR, BTN_DEMO_DIARY, BTN_OWN, BTN_SETTINGS,
+           BTN_TO_DIARY, BTN_ABOUT, BTN_VOICE_ON, BTN_VOICE_OFF}
+IMG = os.path.join(ROOT, 'tools', 'img')
 # Клавиатура у человека обновляется только с новым сообщением бота: старые надписи тоже понимаем.
-LEGACY = {'Спросить Лу': BTN_ASK, 'Мои записи': BTN_MY_DIARY, 'Пример дневника': BTN_EXAMPLE,
+LEGACY = {'Спросить Лу': BTN_ASK, '💬 Спросить Лу': BTN_ASK, 'Мои записи': BTN_MY_DIARY, 'Пример дневника': BTN_EXAMPLE,
           'Календарь': BTN_CALENDAR, 'Дневник героини': BTN_DEMO_DIARY, 'Начать свой дневник': BTN_OWN,
           '✍️ Начать свой дневник': BTN_OWN,
           'Настройки': BTN_SETTINGS}
@@ -192,9 +228,91 @@ COMMANDS = [{'command': 'start', 'description': 'Начало'},
             {'command': 'ask', 'description': 'Спросить Лу'},
             {'command': 'entries', 'description': 'Мои записи'},
             {'command': 'diary', 'description': 'Календарь'},
-            {'command': 'settings', 'description': 'Настройки'}]
+            {'command': 'settings', 'description': 'Настройки'},
+            {'command': 'about', 'description': 'Про Лу'}]
 
 API_ERRORS = (urllib.error.URLError, RuntimeError, OSError, ValueError)
+
+# Озвучка ответа по кнопке. Модель и адрес те же, что у Лу: NeuralDeep, совместимый с OpenAI.
+TTS_MODEL = os.environ.get('LU_TTS_MODEL', 'qwen3-tts')
+# Голос Лу не дольше 10–15 секунд (Катя, 19.11.2026): около 200 знаков русской речи.
+# Лу говорит ровно: без манеры по умолчанию голос звучал слишком радостно (Катя, 20.11.2026).
+TTS_STYLE = os.environ.get('LU_TTS_STYLE', 'Говори спокойно, ровно и негромко, чуть задумчиво, '
+                           'без радости и восклицаний. Темп неторопливый.')
+TTS_VOICE = os.environ.get('LU_TTS_VOICE', '')
+TTS_MAX = int(os.environ.get('LU_TTS_MAX', '200'))
+VOICE_KEEP = 300
+SUNS_NEEDED = int(os.environ.get('LU_SUNS_NEEDED', '10'))
+# Первое солнышко — окном с пояснением, дальше короткой всплывашкой.
+SUN_GIVEN = '☀ Лу получил солнышко: %d из %d. На 10 откроется Лучик, тёплый режим Лу.'
+SUNS_UNLOCKED = ('☀ Под ответами Лу набралось %d солнышек.\n\n'
+                 'Теперь можно включить Лучика: того, кем Лу был раньше. Он отвечает тепло, на «ты», '
+                 'с «!» и ☀, и может дать совет, но только по твоим записям. Числа он берёт оттуда же, '
+                 'код проверяет их так же, как у Лу.')
+LUCHIK_ON_MSG = '☀ Лучик включён. Следующие вопросы получит он. Вернуть Лу: кнопка внизу.'
+LUCHIK_OFF_MSG = '🌙 Снова отвечает Лу: ровно, по записям, без советов.'
+LUCHIK_LOCKED = 'Лучик откроется, когда под ответами Лу наберётся %d ☀. Сейчас %d.'
+BTN_LUCHIK_ON, BTN_LUCHIK_OFF = '☀ Включить Лучика', '🌙 Вернуть Лу'
+VOICE_GONE = 'Этот ответ уже не озвучить: он слишком старый.'
+VOICE_FAIL = 'Озвучить не получилось. Ответ остаётся текстом выше.'
+
+
+def _nd():
+    base = (os.environ.get('LU_TTS_BASE') or os.environ.get('NEURALDEEP_BASE_URL')
+            or 'https://api.neuraldeep.tech/v1').rstrip('/')
+    key = (os.environ.get('LU_TTS_KEY') or os.environ.get('NEURALDEEP_API_KEY')
+           or os.environ.get('NEURAL_DEEP_API_KEY') or os.environ.get('LU_API_KEY') or '')
+    return base, key
+
+
+STT_MODEL = os.environ.get('LU_STT_MODEL', 'whisper-1')
+
+
+def stt(audio):
+    """Голосовое (ogg из Телеграма) в текст через whisper."""
+    base, key = _nd()
+    b = 'lu%d' % int(time.time() * 1000)
+    body = b''
+    for k, v in (('model', STT_MODEL), ('language', 'ru')):
+        body += ('--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n' % (b, k, v)).encode()
+    body += ('--%s\r\nContent-Disposition: form-data; name="file"; filename="voice.ogg"\r\n'
+             'Content-Type: audio/ogg\r\n\r\n' % b).encode() + audio + ('\r\n--%s--\r\n' % b).encode()
+    r = urllib.request.Request(base + '/audio/transcriptions', data=body, headers={
+        'Authorization': 'Bearer ' + key, 'Content-Type': 'multipart/form-data; boundary=' + b})
+    with urllib.request.urlopen(r, timeout=60) as resp:
+        return json.loads(resp.read()).get('text', '')
+
+
+def voice_text(text):
+    """Текст для озвучки: без разметки и не длиннее TTS_MAX, обрезка по концу фразы."""
+    plain = re.sub(r'<[^>]+>', '', html.unescape(text)).strip()
+    if len(plain) <= TTS_MAX:
+        return plain
+    cut = plain[:TTS_MAX]
+    end = max(cut.rfind(c) for c in '.?\n')
+    return (cut[:end + 1] if end > TTS_MAX // 3 else cut.rsplit(' ', 1)[0] + '....').strip()
+
+
+def voice_on(u):
+    """Голос по умолчанию включён везде (Катя, 20.11.2026): человек выключает его кнопкой."""
+    return u.get('voice', True)
+
+
+def tts(text):
+    """Текст в голос: ogg/opus, его Телеграм принимает как голосовое сообщение."""
+    base, key = _nd()
+    plain = voice_text(text)
+    req = {'model': TTS_MODEL, 'input': plain, 'response_format': 'opus', 'instructions': TTS_STYLE}
+    if TTS_VOICE:
+        req['voice'] = TTS_VOICE
+    body = json.dumps(req).encode()
+    r = urllib.request.Request(base + '/audio/speech', data=body, headers={
+        'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(r, timeout=60) as resp:
+        audio = resp.read()
+    if not audio.startswith(b'OggS'):
+        raise ValueError('сервис вернул не ogg')
+    return audio
 
 
 def now():
@@ -275,7 +393,7 @@ def diary_text(rows, mode):
     if mode == 'demo':
         lines += ['', 'Спросите Лу о героине: напишите вопрос сюда.']
     else:
-        lines += ['', 'Спросить, почему так: «💬 Спросить Лу» внизу.']
+        lines += ['', 'Спросить, почему так: «💬 Пообщаться с Лу» внизу.']
     return '\n'.join(lines).strip()
 
 
@@ -392,19 +510,19 @@ class Bridge(object):
                                       'is_persistent': True}
         return self.safe('sendMessage', **params)
 
-    def upload(self, method, file_field, filename, content, **params):
+    def upload(self, method, file_field, filename, content, ctype='text/plain; charset=utf-8', **params):
         """Отправить файл (multipart). None при ошибке."""
         boundary = 'lu%d' % int(time.time() * 1000)
         body = b''
         for k, v in params.items():
             body += ('--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n' % (boundary, k, v)).encode()
         body += ('--%s\r\nContent-Disposition: form-data; name="%s"; filename="%s"\r\n'
-                 'Content-Type: text/plain; charset=utf-8\r\n\r\n' % (boundary, file_field, filename)).encode()
+                 'Content-Type: %s\r\n\r\n' % (boundary, file_field, filename, ctype)).encode()
         body += content + ('\r\n--%s--\r\n' % boundary).encode()
         r = urllib.request.Request(self.api + method, data=body,
                                    headers={'Content-Type': 'multipart/form-data; boundary=' + boundary})
         try:
-            with urllib.request.urlopen(r, timeout=30) as resp:
+            with urllib.request.urlopen(r, timeout=90) as resp:
                 return json.loads(resp.read()).get('result')
         except (urllib.error.URLError, OSError, ValueError) as e:
             self.log('tg_errors.jsonl', method=method, error=str(e)[:300])
@@ -420,8 +538,10 @@ class Bridge(object):
                 return
         self.send(uid, text, keyboard)
 
-    def widget(self, chat, name, data, caption, above=False):
+    def widget(self, chat, name, data, caption, above=False, keyboard=None):
         """Отправить виджет. None, если не получилось: тогда вызывающий шлёт текст."""
+        if self.s.get('widgets_off'):
+            return None
         try:
             html = tg_widgets.code(name)
         except (tg_widgets.TooLarge, OSError) as e:
@@ -432,7 +552,16 @@ class Bridge(object):
             params['caption'] = caption
         if above:
             params['show_caption_above_media'] = True
-        return self.safe('sendWidget', **params)
+        if keyboard:
+            params['reply_markup'] = {'inline_keyboard': keyboard}
+        try:
+            return self.call('sendWidget', http_timeout=20, **params)
+        except API_ERRORS as e:
+            self.log('tg_errors.jsonl', method='sendWidget', error=str(e)[:300])
+            # 18.11 Телеграм закрыл виджеты для бота: больше не пробуем, отвечаем текстом сразу.
+            if 'WIDGET_NOT_ALLOWED' in str(e):
+                self.s['widgets_off'] = True
+            return None
 
     def setup_profile(self):
         """Команды и описание бота. Повторный вызов ничего не ломает."""
@@ -457,7 +586,9 @@ class Bridge(object):
             msg = self.widget(uid, 'welcome', data, WELCOME_CAPTION[kind])
         if not msg:
             if kind == 'new':
-                self.send(uid, INTRO_NEW, self.choice_keyboard(), html=True)
+                # Выбор — нижними кнопками: они заменяют клавиатуру, оставшуюся от прошлых версий бота.
+                if not self.photo(uid, 'welcome', INTRO_NEW, reply_keyboard=CHOICE_KB):
+                    self.send(uid, INTRO_NEW, reply_keyboard=CHOICE_KB, html=True)
             elif kind == 'demo':
                 self.send(uid, DEMO_PICK, self.questions_keyboard('demo'))
         return bool(msg)
@@ -474,10 +605,10 @@ class Bridge(object):
     def greet_own(self, uid):
         """Свой дневник: с записями - сводка и виджет, без записей - как начать."""
         if self.store.count(uid):
-            self.send(uid, self.own_back(uid), reply_keyboard=KEYBOARD['own'])
+            self.send(uid, self.own_back(uid), reply_keyboard=self.kb(uid))
             self.send_welcome(uid, 'own')
         else:
-            self.send(uid, OWN_HELLO, reply_keyboard=KEYBOARD['own'])
+            self.send(uid, OWN_HELLO, reply_keyboard=self.kb(uid))
 
     def choice_keyboard(self):
         return [[{'text': '✍️ Начать свой дневник', 'callback_data': 'mode:own'},
@@ -487,10 +618,11 @@ class Bridge(object):
         self.store.set_mode(uid, mode)
         u = self.user(uid)
         u['awaiting'] = ''
+        u['chat'] = False
         if mode == 'own':
             self.greet_own(uid)
         else:
-            self.send(uid, DEMO_HELLO, reply_keyboard=KEYBOARD['demo'])
+            self.send(uid, DEMO_HELLO, reply_keyboard=self.kb(uid))
             self.send_welcome(uid, 'demo')
 
     def send_diary(self, uid):
@@ -603,6 +735,84 @@ class Bridge(object):
                            self.store.export_text(uid).encode('utf-8'), chat_id=uid, caption=EXPORT_CAPTION):
             self.send(uid, 'Не получилось отправить файл. Попробуйте позже.')
 
+    def kb(self, uid):
+        """Нижняя клавиатура по состоянию: дневник, разговор с Лу или пример."""
+        u = self.user(uid)
+        voice = BTN_VOICE_OFF if voice_on(u) else BTN_VOICE_ON
+        sun = [BTN_LUCHIK_OFF if u.get('luchik') else BTN_LUCHIK_ON] if u.get('suns', 0) >= SUNS_NEEDED else []
+        if self.mode(uid) == 'demo':
+            return [[BTN_DEMO_DIARY, BTN_OWN], [voice] + sun, [BTN_SETTINGS, BTN_ABOUT]]
+        if u.get('chat'):
+            return [[voice, BTN_TO_DIARY]] + ([sun] if sun else []) + [[BTN_MY_DIARY, BTN_SETTINGS], [BTN_ABOUT]]
+        return [[BTN_ASK, BTN_MY_DIARY], [BTN_CALENDAR, BTN_SETTINGS], [BTN_ABOUT]]
+
+    def photo(self, uid, name, caption, keyboard=None, reply_keyboard=None):
+        """Картинка с подписью (HTML). Файл загружается один раз, дальше идёт по file_id."""
+        params = {'chat_id': uid, 'caption': caption, 'parse_mode': 'HTML'}
+        if keyboard:
+            params['reply_markup'] = {'inline_keyboard': keyboard}
+        elif reply_keyboard:
+            params['reply_markup'] = {'keyboard': reply_keyboard, 'resize_keyboard': True, 'is_persistent': True}
+        ids = self.s.setdefault('photo_ids', {})
+        path = next((os.path.join(IMG, name + ext) for ext in ('.jpg', '.png')
+                     if os.path.exists(os.path.join(IMG, name + ext))), None)
+        if not path:
+            return None
+        # Ключ кэша с временем файла: заменили картинку — она загрузится заново.
+        key = '%s:%d' % (name, int(os.path.getmtime(path)))
+        if ids.get(key):
+            r = self.safe('sendPhoto', photo=ids[key], **params)
+            if r:
+                return r
+        with open(path, 'rb') as f:
+            content = f.read()
+        if 'reply_markup' in params:
+            params['reply_markup'] = json.dumps(params['reply_markup'], ensure_ascii=False)
+        ext = os.path.splitext(path)[1]
+        r = self.upload('sendPhoto', 'photo', name + ext, content,
+                        ctype='image/jpeg' if ext == '.jpg' else 'image/png', **params)
+        if r and r.get('photo'):
+            ids[key] = r['photo'][-1]['file_id']
+        return r
+
+    def enter_chat(self, uid):
+        """Режим «Пообщаться»: каждое сообщение — вопрос Лу, ответ текстом или голосом."""
+        # Пообщаться можно сразу: без выбора режима и без записей (Катя, 19.11.2026).
+        if not self.mode(uid):
+            self.store.set_mode(uid, 'own')
+        if self.mode(uid) != 'own':
+            return self.start_ask(uid)
+        empty = not self.store.entries(uid)
+        u = self.user(uid)
+        u['chat'], u['awaiting'] = True, ''
+        caption = CHAT_HELLO % ('голосом' if voice_on(u) else 'текстом')
+        if not self.photo(uid, 'chat', caption, reply_keyboard=self.kb(uid)):
+            self.send(uid, caption, reply_keyboard=self.kb(uid), html=True)
+        left = '' if self.store.person(uid).get('key') else '\nОсталось вопросов на сегодня: %d из %d.' % (
+            max(0, DAILY_LIMIT - u['count']), DAILY_LIMIT)
+        if empty:
+            return self.send(uid, CHAT_EMPTY + left)
+        self.send(uid, ASK_PROMPT_SHORT + left, self.questions_keyboard('own'))
+
+    def hear(self, uid, m):
+        """Голосовое в текст. None — не вышло, человеку уже сказано."""
+        v = m.get('voice') or m.get('audio')
+        try:
+            f = self.call('getFile', http_timeout=20, file_id=v['file_id'])
+            url = self.api.replace('/bot', '/file/bot', 1) + f['file_path']
+            with urllib.request.urlopen(url, timeout=30) as r:
+                audio = r.read()
+            text = stt(audio).strip()
+        except API_ERRORS as e:
+            self.log('tg_errors.jsonl', method='stt', error=str(e)[:300])
+            text = ''
+        if not text:
+            self.send(uid, HEAR_FAIL)
+            return None
+        if not self.user(uid).get('chat'):  # в разговоре расшифровку не показываем
+            self.send(uid, HEARD % short(text, 300))
+        return text
+
     def start_ask(self, uid):
         mode = self.mode(uid)
         if mode == 'demo':
@@ -640,6 +850,10 @@ class Bridge(object):
     def to_inbox(self, uid, mode, text):
         name = hub.ensure_workspace(uid, mode)
         line = {'from': 'tg:%s' % uid, 'at': now().isoformat(timespec='seconds'), 'text': text[:2000]}
+        if self.user(uid).get('luchik'):
+            line['persona'] = 'luchik'
+        elif self.user(uid).get('chat') or voice_on(self.user(uid)):
+            line['persona'] = 'chat'  # разговор или ответ голосом: тот же Лу, коротко, голос как в канале
         with io.open(os.path.join(hub.home_of(name), 'inbox.jsonl'), 'a', encoding='utf-8', newline='\n') as f:
             f.write(json.dumps(line, ensure_ascii=False) + '\n')
         u = self.user(uid)
@@ -685,10 +899,14 @@ class Bridge(object):
             return
         text = (m.get('text') or '').strip()
         u = self.user(uid)
+        if not text and (m.get('voice') or m.get('audio')):
+            text = self.hear(uid, m)
+            if text is None:
+                return
         text = LEGACY.get(text, text)
         cmd = text.split()[0].split('@')[0] if text.startswith('/') else ''
         rest = text[len(text.split()[0]):].strip() if cmd else ''
-        if cmd or text in BUTTONS:
+        if cmd or text in BUTTONS or text in (BTN_LUCHIK_ON, BTN_LUCHIK_OFF):
             u['awaiting'] = ''  # команда или кнопка отменяет начатое: вопрос, ключ, правку
 
         if cmd == '/start':
@@ -696,15 +914,18 @@ class Bridge(object):
                 u['seen'] = now().isoformat(timespec='seconds')
                 self.log('tg_users.jsonl', user='tg:%s' % uid, source=rest or 'без метки')
             u['awaiting'] = ''
+            u['chat'] = False  # /start возвращает в дневник: клавиатура совпадает с подсказкой
             mode = self.mode(uid)
             if mode == 'own':
                 self.greet_own(uid)
             elif mode:
-                self.send(uid, DEMO_HELLO, reply_keyboard=KEYBOARD[mode])
+                self.send(uid, DEMO_HELLO, reply_keyboard=self.kb(uid))
                 self.send_welcome(uid, mode)
             else:
                 self.send_welcome(uid, 'new')
             return
+        if text in CHOICE_MODES:
+            return self.switch(uid, CHOICE_MODES[text])
         if cmd == '/mine' or text == BTN_OWN:
             return self.switch(uid, 'own')
         if cmd == '/example' or text == BTN_EXAMPLE:
@@ -719,7 +940,21 @@ class Bridge(object):
             if rest and self.mode(uid) in ('own', 'demo'):
                 u['awaiting'] = ''
                 return self.question(uid, self.mode(uid), rest)
-            return self.start_ask(uid)
+            return self.enter_chat(uid)
+        if cmd == '/about' or text == BTN_ABOUT:
+            about = ABOUT
+            ch = self.s.get('channel') or {}
+            if ch.get('username'):
+                about += '\n\n📣 Канал Лу: @' + ch['username']
+            return self.send(uid, about, reply_keyboard=self.kb(uid), html=True)
+        if text == BTN_TO_DIARY:
+            u['chat'] = False
+            return self.send(uid, CHAT_OFF, reply_keyboard=self.kb(uid))
+        if text in (BTN_LUCHIK_ON, BTN_LUCHIK_OFF):
+            return self.set_luchik(uid, text == BTN_LUCHIK_ON)
+        if text in (BTN_VOICE_ON, BTN_VOICE_OFF):
+            u['voice'] = text == BTN_VOICE_ON
+            return self.send(uid, VOICE_ON_MSG if u['voice'] else VOICE_OFF_MSG, reply_keyboard=self.kb(uid))
         if cmd == '/key':
             u['awaiting'] = 'key'
             return self.send(uid, KEY_HELP)
@@ -748,7 +983,7 @@ class Bridge(object):
             return self.send(uid, CHOOSE, self.choice_keyboard())
         if mode == 'demo':
             return self.question(uid, 'demo', text)
-        if u['awaiting'] == 'ask' or re.match(r'лу\s*[,:!]', text, re.I):
+        if u.get('chat') or u['awaiting'] == 'ask' or re.match(r'лу\s*[,:!]', text, re.I):
             u['awaiting'] = ''
             return self.question(uid, 'own', text)
         entry_id, topics = self.store.add_entry(uid, text[:4000])
@@ -869,6 +1104,14 @@ class Bridge(object):
             if screen:
                 self.show(uid, screen, mid)
             return
+        if data.startswith('sun:') and data[4:].isdigit():
+            return self.give_sun(uid, data[4:], c['id'])
+        if data in ('luchik:on', 'luchik:off'):
+            self.safe('answerCallbackQuery', callback_query_id=c['id'])
+            return self.set_luchik(uid, data == 'luchik:on')
+        if data.startswith('tts:') and data[4:].isdigit():
+            self.safe('answerCallbackQuery', callback_query_id=c['id'], text='Озвучиваю')
+            return self.speak(uid, data[4:])
         if data.startswith('eq:'):
             _, mode, i = (data.split(':') + ['', ''])[:3]
             qs = tg_widgets.QUESTIONS if mode == 'demo' else OWN_QUESTIONS
@@ -1026,11 +1269,122 @@ class Bridge(object):
         except tg_widgets.TooLarge as e:
             self.log('tg_errors.jsonl', method='answer_data', error=str(e))
             data = None
-        if data and len(text) <= 1024 and self.widget(uid, 'answer', data, text, above=True):
+        kb = self.voice_keyboard(text)
+        # Голос включён: голосовое не дольше 15 секунд. Если ответ длиннее, голос читает начало,
+        # а полный текст приходит следом, чтобы ничего не потерялось.
+        if voice_on(self.user(uid)) and self.voice_reply(uid, text, [kb[0][1:]]):
+            if len(voice_text(text)) < len(re.sub(r'<[^>]+>', '', html.unescape(text)).strip()):
+                self.send(uid, answer_html(text), html=True)
             return
-        self.send(uid, answer_html(text), html=True)
+        if data and len(text) <= 1024 and self.widget(uid, 'answer', data, text, above=True, keyboard=kb):
+            return
+        self.send(uid, answer_html(text), kb, html=True)
         if data and len(text) > 1024:
             self.widget(uid, 'answer', data, ANSWER_SHORT_CAPTION)
+
+    def voice_keyboard(self, text):
+        """Кнопка «Озвучить» под ответом. Текст ответа хранится в состоянии, последние VOICE_KEEP."""
+        texts = self.s.setdefault('voice', {})
+        n = self.s.get('voice_n', 0) + 1
+        self.s['voice_n'] = n
+        texts[str(n)] = text
+        for k in sorted(texts, key=int)[:-VOICE_KEEP]:
+            texts.pop(k)
+        return [[{'text': '🔊 Озвучить', 'callback_data': 'tts:%d' % n},
+                 {'text': '☀ Подарить солнышко', 'callback_data': 'sun:%d' % n}]]
+
+    def give_sun(self, uid, n, cid):
+        """Солнышко под ответом: одно на ответ. На SUNS_NEEDED открывается Лучик."""
+        u = self.user(uid)
+        given = u.setdefault('sunned', [])
+        if n in given:
+            return self.safe('answerCallbackQuery', callback_query_id=cid, text='☀ Уже стоит')
+        given.append(n)
+        del given[:-VOICE_KEEP]
+        u['suns'] = u.get('suns', 0) + 1
+        if u['suns'] < SUNS_NEEDED:
+            return self.safe('answerCallbackQuery', callback_query_id=cid,
+                             text=SUN_GIVEN % (u['suns'], SUNS_NEEDED), show_alert=u['suns'] == 1)
+        self.safe('answerCallbackQuery', callback_query_id=cid, text='☀ %d' % u['suns'])
+        if u['suns'] == SUNS_NEEDED:
+            kb = [[{'text': BTN_LUCHIK_ON, 'callback_data': 'luchik:on'}]]
+            if not self.photo(uid, 'luchik', SUNS_UNLOCKED % SUNS_NEEDED, kb):
+                self.send(uid, SUNS_UNLOCKED % SUNS_NEEDED, kb)
+
+    def set_luchik(self, uid, on):
+        u = self.user(uid)
+        if on and u.get('suns', 0) < SUNS_NEEDED:
+            return self.send(uid, LUCHIK_LOCKED % (SUNS_NEEDED, u.get('suns', 0)))
+        u['luchik'] = on
+        self.send(uid, LUCHIK_ON_MSG if on else LUCHIK_OFF_MSG, reply_keyboard=self.kb(uid))
+
+    def voice_reply(self, uid, text, keyboard=None):
+        """Ответ голосовым с текстом в подписи. False — не вышло, ответ уйдёт текстом."""
+        self.safe('sendChatAction', chat_id=uid, action='upload_voice')
+        try:
+            audio = tts(text)
+        except API_ERRORS as e:
+            self.log('tg_errors.jsonl', method='tts', error=str(e)[:300])
+            return False
+        params = {'chat_id': uid}
+        if keyboard:
+            params['reply_markup'] = json.dumps({'inline_keyboard': keyboard}, ensure_ascii=False)
+        # Без расшифровки в подписи (Катя, 19.11.2026): голосовое приходит как голосовое.
+        return self.upload('sendVoice', 'voice', 'lu.ogg', audio, ctype='audio/ogg', **params) is not None
+
+    def speak(self, uid, n):
+        """Озвучить ответ голосом Лу и прислать голосовым сообщением."""
+        text = self.s.get('voice', {}).get(n)
+        if not text:
+            return self.send(uid, VOICE_GONE)
+        self.safe('sendChatAction', chat_id=uid, action='upload_voice')
+        try:
+            audio = tts(text)
+        except API_ERRORS as e:
+            self.log('tg_errors.jsonl', method='tts', error=str(e)[:300])
+            return self.send(uid, VOICE_FAIL)
+        if self.upload('sendVoice', 'voice', 'lu.ogg', audio, ctype='audio/ogg', chat_id=uid) is None:
+            self.send(uid, VOICE_FAIL)
+
+    def note_channel(self, up):
+        """Канал, где бот админ: его id нужен для автопостов."""
+        chat = (up.get('channel_post') or up.get('my_chat_member') or {}).get('chat') or {}
+        if chat.get('type') != 'channel':
+            return
+        status = ((up.get('my_chat_member') or {}).get('new_chat_member') or {}).get('status')
+        if status in ('left', 'kicked', 'member'):
+            if (self.s.get('channel') or {}).get('id') == chat['id']:
+                self.s.pop('channel')
+            return
+        self.s['channel'] = {'id': chat['id'], 'title': chat.get('title', ''), 'username': chat.get('username', '')}
+
+    def autopost(self):
+        """Посты из data/channel_posts.json: [{at: '2026-11-19T10:00', text, sent}], проверка раз в минуту."""
+        t = time.time()
+        if t - self.s.get('autopost_check', 0) < 60:
+            return
+        self.s['autopost_check'] = t
+        ch = self.s.get('channel') or {}
+        if not ch.get('id') or not os.path.exists(POSTS):
+            return
+        with io.open(POSTS, encoding='utf-8') as f:
+            posts = json.load(f)
+        stamp = now().strftime('%Y-%m-%dT%H:%M')
+        changed = False
+        for post in posts:
+            if post.get('sent') or post.get('at', '9') > stamp:
+                continue
+            r = self.safe('sendMessage', chat_id=ch['id'], text=post['text'])
+            if not r:
+                break
+            post['sent'] = now().isoformat(timespec='seconds')
+            changed = True
+            self.log('tg_channel.jsonl', at=post['at'], message_id=r.get('message_id'))
+        if changed:
+            tmp = POSTS + '.tmp'
+            with io.open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(posts, f, ensure_ascii=False, indent=1)
+            os.replace(tmp, POSTS)
 
     def workspaces(self):
         if not os.path.isdir(hub.USERS):
@@ -1091,7 +1445,8 @@ class Bridge(object):
             poll = 3 if self.waiting_users() else 25
             try:
                 updates = self.call('getUpdates', http_timeout=poll + 10, offset=self.s['offset'], timeout=poll,
-                                    allowed_updates=['message', 'edited_message', 'callback_query', 'widget_query'])
+                                    allowed_updates=['message', 'edited_message', 'callback_query', 'widget_query',
+                                                     'channel_post', 'my_chat_member'])
             except API_ERRORS as e:
                 self.log('tg_errors.jsonl', method='getUpdates', error=str(e)[:300])
                 time.sleep(5)
@@ -1107,9 +1462,12 @@ class Bridge(object):
                         self.on_widget_query(up['widget_query'])
                     elif 'callback_query' in up:
                         self.on_callback(up['callback_query'])
+                    elif 'channel_post' in up or 'my_chat_member' in up:
+                        self.note_channel(up)
                 except Exception as e:  # одно сломанное обновление не роняет мост
                     self.log('tg_errors.jsonl', update=up.get('update_id'), error=repr(e)[:300])
             self.deliver()
+            self.autopost()
             for uid in self.waiting_users():
                 self.typing(uid)
             self.save_state()

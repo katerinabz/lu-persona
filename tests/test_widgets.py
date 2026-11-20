@@ -130,7 +130,7 @@ class FakeBridge(tg_bridge.Bridge):
         return [p.get('text') for m, p in self.calls if m in ('sendMessage', 'editMessageText')]
 
     def upload(self, method, file_field, filename, content, **params):
-        self.calls.append((method, dict(params, filename=filename, content=content.decode('utf-8'))))
+        self.calls.append((method, dict(params, filename=filename, content=content.decode('utf-8', 'replace'))))
         return {'message_id': len(self.calls)}
 
     def buttons(self):
@@ -174,11 +174,14 @@ class Base(unittest.TestCase):
                     o['kind'] = kind
                 f.write(json.dumps(o, ensure_ascii=False) + '\n')
 
-    def bridge(self, mode=None, fail=()):
+    def bridge(self, mode=None, fail=(), voice=False):
         b = FakeBridge(self.dir, fail)
         self.stores.append(b.store)
         if mode:
             b.store.set_mode(7, mode)
+        # Голос по умолчанию включён; тесты текстовой доставки выключают его явно.
+        if not voice:
+            b.user(7)['voice'] = False
         return b
 
 
@@ -192,8 +195,17 @@ class Onboarding(Base):
     def test_choice_falls_back_to_text_with_buttons(self):
         b = self.bridge(fail={'sendWidget'})
         b.on_message(self.msg('/start'))
-        self.assertEqual(b.calls[1][1]['text'], tg_bridge.INTRO_NEW)
-        self.assertIn('inline_keyboard', b.calls[1][1]['reply_markup'])
+        self.assertEqual(b.calls[1][0], 'sendPhoto')
+        self.assertEqual(b.calls[1][1]['caption'], tg_bridge.INTRO_NEW)
+        # Выбор — нижними кнопками: они заменяют клавиатуру от старых версий бота.
+        self.assertIn(tg_bridge.BTN_START_OWN, b.calls[1][1]['reply_markup'])
+        self.assertNotIn('inline_keyboard', b.calls[1][1]['reply_markup'])
+
+    def test_choice_button_switches_mode(self):
+        b = self.bridge(fail={'sendWidget'})
+        b.on_message(self.msg('/start'))
+        b.on_message(self.msg(tg_bridge.BTN_START_DEMO))
+        self.assertEqual(b.mode(self.uid if hasattr(self, 'uid') else b.calls[0][1]['chat_id']), 'demo')
 
     def test_text_before_choice_asks_to_choose(self):
         b = self.bridge()
@@ -260,10 +272,18 @@ class OwnDiary(Base):
         self.assertEqual(tg_store.tag('Вернула долг другу'), ['отношения', 'деньги'])
         self.assertEqual(tg_store.tag('Другой день, другие мысли'), [])
 
-    def test_ask_needs_entries(self):
+    def test_chat_opens_without_entries(self):
         b = self.bridge('own')
         b.on_message(self.msg('Спросить Лу'))
-        self.assertEqual(b.texts(), [tg_bridge.NEED_ENTRIES])
+        self.assertTrue(b.user(b.calls[0][1]['chat_id'])['chat'])
+        self.assertIn(tg_bridge.CHAT_EMPTY, b.texts()[-1])
+
+    def test_chat_opens_before_mode_choice(self):
+        b = self.bridge()
+        b.on_message(self.msg(tg_bridge.BTN_ASK))
+        uid = b.calls[0][1]['chat_id']
+        self.assertEqual(b.mode(uid), 'own')
+        self.assertTrue(b.user(uid)['chat'])
 
     def test_ask_button_then_question(self):
         b = self.bridge('own')
@@ -429,7 +449,140 @@ class Keys(Base):
         self.assertEqual(tg_keys.provider('abcdef')[0], 'NeuralDeep')
 
 
+class ChatMode(Base):
+    def test_chat_mode_sends_every_message_to_lu(self):
+        b = self.bridge('own')
+        b.store.add_entry(7, 'Не выспалась')
+        b.on_message(self.msg(tg_bridge.BTN_ASK))
+        self.assertIn('sendPhoto', b.methods())
+        b.on_message(self.msg('Что с моим сном?'))
+        self.assertEqual(self.inbox('own')[-1]['text'], 'Что с моим сном?')
+        self.assertEqual(b.store.count(7), 1)
+        b.on_message(self.msg(tg_bridge.BTN_TO_DIARY))
+        b.on_message(self.msg('Сегодня спала лучше'))
+        self.assertEqual(b.store.count(7), 2)
+
+    def test_voice_toggle_answers_with_voice(self):
+        b = self.bridge('own')
+        b.on_message(self.msg(tg_bridge.BTN_VOICE_ON))
+        self.assertTrue(b.user(7)['voice'])
+        old = tg_bridge.tts
+        tg_bridge.tts = lambda text: b'OggS' + text.encode('utf-8')
+        try:
+            self.outbox('own', 'Про сон у вас 1 запись.')
+            b.deliver()
+        finally:
+            tg_bridge.tts = old
+        m, p = b.calls[-1]
+        self.assertEqual(m, 'sendVoice')
+        self.assertNotIn('caption', p)  # голосовое без расшифровки
+
+    def test_voice_message_becomes_entry(self):
+        b = self.bridge('own')
+        old = tg_bridge.stt
+        tg_bridge.stt = lambda audio: 'Голосом записала'
+        b.call = lambda method, http_timeout=40, **kw: (b.calls.append((method, kw)) or
+                                                        {'file_path': 'v.ogg', 'message_id': 1})
+        import urllib.request as ur
+        oldopen = ur.urlopen
+
+        class R:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+            def read(self):
+                return b'OggS'
+        ur.urlopen = lambda *a, **k: R()
+        try:
+            b.on_message({'chat': {'id': 7, 'type': 'private'}, 'voice': {'file_id': 'x'}, 'message_id': 3})
+        finally:
+            tg_bridge.stt, ur.urlopen = old, oldopen
+        self.assertEqual(b.store.entries(7)[-1]['text'], 'Голосом записала')
+
+    def test_autopost_to_channel(self):
+        b = self.bridge()
+        posts = os.path.join(self.dir, 'posts.json')
+        with open(posts, 'w', encoding='utf-8') as f:
+            json.dump([{'at': '2000-01-01T10:00', 'text': 'Пост раз'},
+                       {'at': '2999-01-01T10:00', 'text': 'Пост потом'}], f, ensure_ascii=False)
+        old = tg_bridge.POSTS
+        tg_bridge.POSTS = posts
+        try:
+            b.note_channel({'my_chat_member': {'chat': {'id': -100, 'type': 'channel', 'username': 'lu'},
+                                               'new_chat_member': {'status': 'administrator'}}})
+            b.autopost()
+        finally:
+            tg_bridge.POSTS = old
+        sent = [p['text'] for m, p in b.calls if m == 'sendMessage']
+        self.assertEqual(sent, ['Пост раз'])
+        with open(posts, encoding='utf-8') as f:
+            self.assertTrue(json.load(f)[0]['sent'])
+
+
+class Suns(Base):
+    def test_ten_suns_unlock_luchik_and_mark_inbox(self):
+        b = self.bridge('own')
+        b.store.add_entry(7, 'Не выспалась')
+        for i in range(tg_bridge.SUNS_NEEDED):
+            self.outbox('own', 'Про сон у вас 1 запись.')
+            b.deliver()
+            data = [p['reply_markup']['inline_keyboard'][0][1]['callback_data'] for m, p in b.calls
+                    if 'sun:' in json.dumps(p.get('reply_markup', ''))][-1]
+            b.on_callback({'id': str(i), 'from': {'id': 7}, 'data': data, 'message': {'message_id': 5}})
+            b.on_callback({'id': 'x', 'from': {'id': 7}, 'data': data, 'message': {'message_id': 5}})
+        self.assertEqual(b.user(7)['suns'], tg_bridge.SUNS_NEEDED)
+        self.assertTrue(any((p.get('text') or p.get('caption')) == tg_bridge.SUNS_UNLOCKED % tg_bridge.SUNS_NEEDED
+                            for m, p in b.calls))
+        b.on_callback({'id': 'y', 'from': {'id': 7}, 'data': 'luchik:on', 'message': {'message_id': 5}})
+        b.on_message(self.msg('Лу, что со сном?'))
+        self.assertEqual(self.inbox('own')[-1].get('persona'), 'luchik')
+        b.on_message(self.msg(tg_bridge.BTN_LUCHIK_OFF))
+        b.on_message(self.msg('Лу, а теперь?'))
+        self.assertNotIn('persona', self.inbox('own')[-1])
+
+    def test_luchik_locked_before_suns(self):
+        b = self.bridge('own')
+        b.on_callback({'id': 'y', 'from': {'id': 7}, 'data': 'luchik:on', 'message': {'message_id': 5}})
+        self.assertFalse(b.user(7).get('luchik'))
+
+
 class Delivery(Base):
+    def test_answer_has_voice_button_and_speaks(self):
+        b = self.bridge('demo')
+        self.outbox('demo', 'Про работу у вас 14 записей.')
+        b.deliver()
+        kb = b.calls[-1][1]['reply_markup']['inline_keyboard']
+        data = kb[0][0]['callback_data']
+        self.assertTrue(data.startswith('tts:'))
+        old = tg_bridge.tts
+        tg_bridge.tts = lambda text: b'OggS' + text.encode('utf-8')
+        try:
+            b.on_callback({'id': '1', 'from': {'id': 7}, 'data': data, 'message': {'message_id': 5}})
+        finally:
+            tg_bridge.tts = old
+        m, p = b.calls[-1]
+        self.assertEqual(m, 'sendVoice')
+        self.assertIn('14 записей', p['content'])
+
+    def test_voice_failure_says_so(self):
+        b = self.bridge('demo')
+        self.outbox('demo', 'Про сон 9 записей.')
+        b.deliver()
+        data = b.calls[-1][1]['reply_markup']['inline_keyboard'][0][0]['callback_data']
+
+        def boom(text):
+            raise OSError('сети нет')
+        old = tg_bridge.tts
+        tg_bridge.tts = boom
+        try:
+            b.on_callback({'id': '1', 'from': {'id': 7}, 'data': data, 'message': {'message_id': 5}})
+        finally:
+            tg_bridge.tts = old
+        self.assertEqual(b.texts()[-1], tg_bridge.VOICE_FAIL)
+
     def test_reply_as_answer_widget_then_feedback(self):
         b = self.bridge('demo')
         b.on_message(self.msg('вопрос'))
@@ -706,3 +859,10 @@ class AnswerFormat(unittest.TestCase):
 
     def test_short_answer_stays(self):
         self.assertEqual(tg_bridge.answer_html('Записей нет. Сравнить не с чем.'), 'Записей нет. Сравнить не с чем.')
+
+
+class VoiceDefault(Base):
+    def test_voice_on_by_default_and_marks_short_answer(self):
+        b = self.bridge('demo', voice=True)
+        self.assertTrue(tg_bridge.voice_on(b.user(7)))
+        self.assertIn(tg_bridge.BTN_VOICE_OFF, b.kb(7)[1])

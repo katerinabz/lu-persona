@@ -47,6 +47,10 @@ TOOLS = [
      {'since': 'string', 'until': 'string'}),
     ('link', 'Сколько раз две темы встречались в одной записи.',
      {'a': 'string', 'b': 'string'}),
+    ('search', 'Найти записи по смыслу вопроса, даже если в них другие слова: слова (BM25), '
+               'эмбеддинги и реранкер. До 5 самых подходящих записей с датами. Можно сузить '
+               'темой и периодом.',
+     {'query': 'string', 'topic': 'string', 'since': 'string', 'until': 'string'}),
     ('say', 'Сказать человеку. Это и есть твой ответ ему.',
      {'to': 'string', 'text': 'string'}),
     ('remember', 'Дописать датированную строку в заметку о человеке, теме или периоде.',
@@ -125,11 +129,18 @@ def run_tool(name, a, who, env):
         return sh(cmd, env)
     if name == 'link':
         return sh([os.path.join(s, 'link.sh'), str(a.get('a', '')), str(a.get('b', ''))], env)
+    if name == 'search':
+        cmd = [os.path.join(s, 'search.sh'), str(a.get('query', ''))]
+        for k in ('topic', 'since', 'until'):
+            if a.get(k):
+                cmd += ['--' + k, str(a[k])]
+        return sh(cmd, env)
     if name == 'say':
         # Кому говорить, решает не модель: она регулярно путает себя с собеседником и пишет
         # ответ на своё же имя. Адресат берётся из самого раннего неотвеченного сообщения:
         # когда пишут несколько человек из Телеграма, «последний написавший» уже не тот.
-        to = str(a.get('to') or '').strip()
+        # Модель иногда переносит в адрес пометку режима: «tg:1 (Лучик)». Адрес — до первого пробела.
+        to = str(a.get('to') or '').strip().split(' ')[0].strip('[]()')
         if not to or to.lower() in (who.lower(), 'лу', 'lu'):
             pending = [m.get('from') for m in compose_session.unanswered(home) if m.get('from')]
             to = (pending[0] if pending else last_sender(home)) or 'человек'
@@ -140,7 +151,9 @@ def run_tool(name, a, who, env):
         if s not in sys.path:
             sys.path.insert(0, s)
         import _guard
-        found = _guard.check(text, getattr(run_tool, 'support', None))
+        persona = next((m.get('persona') for m in compose_session.unanswered(home)
+                        if m.get('from') == to and m.get('persona')), 'lu')
+        found = _guard.check(text, getattr(run_tool, 'support', None), persona=persona)
         if not found:
             run_tool.refusals = 0
             return sh([os.path.join(s, 'say.sh'), to, text], env)
@@ -196,6 +209,18 @@ def run_tool(name, a, who, env):
             return 'заметки нет, её ещё не заводили'
         return io.open(p, encoding='utf-8').read()
     if name == 'write_state':
+        # Состояние попадает в опору проверки следующих сессий: число без опоры сюда не пишется,
+        # иначе выдумка «отмывается» через память. Время суток (23:50) числом не считается.
+        support = getattr(run_tool, 'support', None)
+        if support is not None:
+            if s not in sys.path:
+                sys.path.insert(0, s)
+            import _guard
+            plain = re.sub(r'\b\d{1,2}:\d{2}(?::\d{2})?\b', '', str(a.get('text', '')))
+            bad = [v for v in _guard.check(plain, support) if v['kind'] == 'число без опоры']
+            if bad:
+                return ('не записано: в состоянии число, которого нет в данных (%s). Возьми число из ответа '
+                        'инструмента и перепиши.' % _guard.describe(bad))
         p = os.path.join(home, 'memory', 'state.md')
         io.open(p, 'w', encoding='utf-8', newline='\n').write(str(a.get('text', '')).strip() + '\n')
         return 'состояние переписано, %d знаков' % len(str(a.get('text', '')))
@@ -301,8 +326,10 @@ def _run_locked(name, key, from_operator, wake_reason, quiet, emit):
     prompt = compose_session.compose(name, from_operator, wake_reason)
     if prompt is None:
         return 0, 1
-    # Промпт уже несёт память, текущее время и сообщения людей: числа оттуда не выдумка.
-    run_tool.support = prompt
+    # Опора для проверки чисел: слова людей, сегодняшняя дата и память. Весь промпт сюда не идёт:
+    # в нём время сессии, номера правил и примеры, и 18.11 Лучик назвал «50 записей» при 34,
+    # потому что сессия шла в 23:50.
+    run_tool.support = compose_session.support(name)
 
     env = dict(os.environ, AGENT_NAME=name)
     messages = [{'role': 'system', 'content': prompt},

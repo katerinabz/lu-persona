@@ -82,6 +82,11 @@ def ensure_workspace(tg_id, mode):
     name = name_of(tg_id, mode)
     home = home_of(name)
     if os.path.isdir(home):
+        # Инструкция сессии общая и меняется вместе с инструментами: копия у человека
+        # обновляется, память и состояние не трогаются.
+        src, dst = os.path.join(LU, 'SESSION_PROMPT.md'), os.path.join(home, 'SESSION_PROMPT.md')
+        if not os.path.exists(dst) or io.open(src, encoding='utf-8').read() != io.open(dst, encoding='utf-8').read():
+            shutil.copy(src, dst)
         return name
     tmp = home + '.tmp'
     shutil.rmtree(tmp, ignore_errors=True)

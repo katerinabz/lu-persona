@@ -36,6 +36,10 @@ def read(*parts):
         return ''
 
 
+# Пометка перед сообщением в промпте, по режиму, который включил человек.
+MARKS = {'luchik': '[режим Лучика] ', 'chat': '[разговор] '}
+
+
 def unanswered(home):
     """Строки входящих, после которых нет ответа этому человеку.
 
@@ -71,6 +75,15 @@ def unanswered(home):
         if not last or (m.get('at') or '') > last:
             out.append(m)
     return out
+
+
+def support(name):
+    """Тексты, числа из которых Лу вправе называть без вызова инструмента."""
+    home = os.path.join(AGENTS, name)
+    parts = [datetime.date.today().isoformat()]
+    parts += [str(m.get('text', '')) for m in unanswered(home) if not m.get('_broken')]
+    parts.append(read(home, 'memory', 'state.md') or '')
+    return '\n'.join(parts)
 
 
 def compose(name, from_operator=None, wake_reason=None):
@@ -114,13 +127,46 @@ def compose(name, from_operator=None, wake_reason=None):
             if m.get('_broken'):
                 add('- строка входящих не разобралась: %s' % m['_broken'])
             else:
-                add('- %s в %s: %s' % (m.get('from'), m.get('at'), m.get('text')))
+                add('- %s%s в %s: %s' % (MARKS.get(m.get('persona'), ''),
+                                         m.get('from'), m.get('at'), m.get('text')))
         add('')
 
-    add('--- КТО ТЫ ---')
-    add('')
-    add(read(home, 'PERSONA.md') or '(нет PERSONA.md)')
-    add('')
+    luchik = [m for m in pending if m.get('persona') == 'luchik']
+    if luchik and len(luchik) == len(pending):
+        # Все ждущие включили Лучика: личность Лу в промпт не идёт, иначе её «советов нет»
+        # перевешивает и модель отвечает как Лу (прогон 18.11, два вопроса из двух).
+        add('--- КТО ТЫ СЕЙЧАС: ЛУЧИК ---')
+        add('')
+        add('Человек собрал 10 солнышек и включил режим Лучика. В этой сессии ты Лучик, не Лу. '
+            'Отвечаешь тепло, на «ты», с «!» и ☀, и можешь дать совет по записям. '
+            'Проверка ответа требует хотя бы один «!» или ☀ и не пропустит фразу «совет я не даю».')
+        add('')
+        add(read(AGENTS, 'lu', 'LUCHIK.md') or '(нет LUCHIK.md)')
+        add('')
+        luchik = []
+    else:
+        add('--- КТО ТЫ ---')
+        add('')
+        add(read(home, 'PERSONA.md') or '(нет PERSONA.md)')
+        add('')
+    if luchik:
+        add('--- РЕЖИМ ЛУЧИКА ---')
+        add('')
+        add('Сообщения с пометкой [режим Лучика] пришли от человека, который включил режим Лучика. На них отвечай')
+        add('как Лучик по правилам ниже: они заменяют правила 2, 3 и 5 Лу только для этих сообщений.')
+        add('Проверка ответа для них пропускает совет по записям, «!» и ☀. Остальные сообщения — обычный Лу.')
+        add('')
+        add(read(AGENTS, 'lu', 'LUCHIK.md') or '(нет LUCHIK.md)')
+        add('')
+
+    if any(m.get('persona') == 'chat' for m in pending):
+        add('--- ГОЛОС В РАЗГОВОРЕ ---')
+        add('')
+        add('На сообщения с пометкой [разговор] отвечай голосом из этого файла. Правила Лу остаются,')
+        add('меняется манера; проверка ответа пропускает одно эмодзи из 🫧 🌙 ☁️, «!» по-прежнему нельзя.')
+        add('')
+        add(read(AGENTS, 'lu', 'CHAT_STYLE.md') or '(нет CHAT_STYLE.md)')
+        add('')
 
     goals = read(home, 'GOALS.md')
     if goals:

@@ -69,7 +69,15 @@ def _snippet(text, start, end, pad=20):
     return text[a:b].replace('\n', ' ').strip()
 
 
-def check(text, support=None):
+# Режим Лучика (включается человеком за 10 солнышек): совет по записям, «!» и ☀ разрешены.
+LUCHIK_ALLOWED = {'совет', 'восклицание'}
+LUCHIK_EMOJI = {'☀', '☀️', '️'}
+# «Пообщаться»: голос канала, одно эмодзи из этих допустимо.
+CHAT_MAX = 200
+CHAT_EMOJI = {'🫧', '🌙', '☁', '☁️', '️'}
+
+
+def check(text, support=None, persona='lu'):
     """Список нарушений. Каждое: kind, rule (номер из PERSONA.md), fragment, context.
 
     support: всё, что модель видела за сессию (промпт, сообщения, ответы инструментов). Если
@@ -100,6 +108,22 @@ def check(text, support=None):
     for m in re.finditer('!', text):
         out.append({'kind': 'восклицание', 'rule': 5, 'fragment': '!',
                     'context': _snippet(text, m.start(), m.end())})
+    if persona == 'luchik':
+        if '!' not in text and '☀' not in text:
+            out.append({'kind': 'нет тепла Лучика', 'rule': 5, 'fragment': text[:40],
+                        'context': 'Лучик отвечает тепло: нужен хотя бы один «!» или ☀'})
+        for m in re.finditer(r'совет[а-я]* (?:я )?не да', low):
+            out.append({'kind': 'Лучик отказал в совете', 'rule': 2, 'fragment': text[m.start():m.end()],
+                        'context': 'Лучик может дать совет по записям'})
+        out = [v for v in out if v['kind'] not in LUCHIK_ALLOWED
+               and not (v['kind'] == 'эмодзи' and v['fragment'] in LUCHIK_EMOJI)]
+    if persona == 'chat' and len(text.strip()) > CHAT_MAX:
+        out.append({'kind': 'длинно для голоса', 'rule': 5, 'fragment': '%d знаков' % len(text.strip()),
+                    'context': 'в разговоре ответ не длиннее %d знаков: его озвучивают, дольше 15 секунд нельзя' % CHAT_MAX})
+    if persona == 'chat':
+        emo = [v for v in out if v['kind'] == 'эмодзи' and v['fragment'] in CHAT_EMOJI]
+        if len({v['fragment'] for v in emo} - {'️'}) <= 1:
+            out = [v for v in out if v not in emo]
     out.sort(key=lambda v: (v['rule'], v['kind']))
     return out
 

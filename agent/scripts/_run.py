@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Разбор аргументов для трёх читающих скриптов. Печатает простой результат."""
+"""Разбор аргументов для читающих скриптов. Печатает простой результат."""
 import argparse
 import sys
 
@@ -9,12 +9,13 @@ import _diary
 
 def main():
     p = argparse.ArgumentParser(add_help=False)
-    p.add_argument('what', choices=('entries', 'topics', 'link'))
+    p.add_argument('what', choices=('entries', 'topics', 'link', 'search'))
     p.add_argument('rest', nargs='*')
     p.add_argument('--topic')
     p.add_argument('--since')
     p.add_argument('--until')
     p.add_argument('--limit', type=int, default=50)
+    p.add_argument('--k', type=int, default=5)
     a = p.parse_args()
 
     try:
@@ -27,6 +28,16 @@ def main():
         elif a.what == 'topics':
             for name, n in _diary.topics(a.since, a.until):
                 print('%s %d' % (name, n))
+        elif a.what == 'search':
+            import _search
+            query = ' '.join(a.rest).strip()
+            if not query:
+                print('нужен вопрос: search.sh <вопрос своими словами>', file=sys.stderr)
+                return 2
+            rows, how = _search.search(query, a.k, a.topic, a.since, a.until)
+            print('поиск: %s, найдено %d' % (how, len(rows)))
+            for r in rows:
+                print('%s | %s | %s' % (r['date'], ','.join(r.get('topics', [])), r['text']))
         else:
             if len(a.rest) < 2:
                 print('нужны две темы: link.sh <тема> <тема>', file=sys.stderr)
